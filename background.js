@@ -6,7 +6,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'GOOGLE_AUTH_REQUEST') {
     chrome.identity.getAuthToken({ interactive: true }, (token) => {
       if (chrome.runtime.lastError || !token) {
-        sendResponse({ ok: false, error: chrome.runtime.lastError });
+        console.error('[background] Google Auth error:', chrome.runtime.lastError);
+        sendResponse({ ok: false, error: chrome.runtime.lastError ? chrome.runtime.lastError.message : 'No token returned' });
       } else {
         googleAuthToken = token;
         sendResponse({ ok: true, token });
@@ -29,49 +30,82 @@ import { summarizeContent, generateProcessTag, generateCertificateSummary } from
 // Message handler for popup/content script
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
-    if (msg.type === "CREATE_CODEX_FROM_FILE") {
-      const { bytes, filename, anchorType, googleAuthToken } = msg.payload;
-      const fileBytes = new Uint8Array(bytes);
-      const hash = await sha256(fileBytes);
-      const integrity = niSha256(hash);
+    try {
+      if (msg.type === "CREATE_CODEX_FROM_FILE") {
+        const { bytes, filename, anchorType, googleAuthToken } = msg.payload;
+        const fileBytes = new Uint8Array(bytes);
+        let hash, integrity, fileText, subject, processTag, anchor, entry, sig;
+        try {
+          hash = await sha256(fileBytes);
+          integrity = niSha256(hash);
+          fileText = new TextDecoder().decode(fileBytes);
+          subject = await summarizeContent(fileText);
+          processTag = await generateProcessTag(fileText);
+        } catch (err) {
+          console.error('[background] Pre-anchor error:', err);
+          sendResponse({ ok: false, error: 'Pre-anchor error', details: err });
+          return;
+        }
 
-      // AI integration for subject, process, and certificate summary
-      const fileText = new TextDecoder().decode(fileBytes);
-      const subject = await summarizeContent(fileText);
-      const processTag = await generateProcessTag(fileText);
+        if (anchorType === 'google' && googleAuthToken) {
+          try {
+            anchor = await anchorGoogle({ id: uuidv4(), storage: { integrity_proof: integrity } }, googleAuthToken);
+          } catch (err) {
+            console.error('[background] Google anchor error:', err);
+            sendResponse({ ok: false, error: 'Google anchor error', details: err });
+            return;
+          }
+        } else {
+          try {
+            anchor = await anchorMock({ id: uuidv4(), storage: { integrity_proof: integrity } });
+          } catch (err) {
+            console.error('[background] Mock anchor error:', err);
+            sendResponse({ ok: false, error: 'Mock anchor error', details: err });
+            return;
+          }
+        }
 
-      let anchor;
-      if (anchorType === 'google' && googleAuthToken) {
-        anchor = await anchorGoogle({ id: uuidv4(), storage: { integrity_proof: integrity } }, googleAuthToken);
-      } else {
-        anchor = await anchorMock({ id: uuidv4(), storage: { integrity_proof: integrity } });
+        entry = {
+          id: uuidv4(),
+          version: "0.0.2",
+          storage: {
+            protocol: anchorType === 'google' ? 'google' : 'local',
+            location: filename,
+            integrity_proof: integrity
+          },
+          identity: {
+            org: "Codex Forge",
+            process: processTag,
+            artifact: filename,
+            subject
+          },
+          anchor,
+          signatures: []
+        };
+
+        try {
+          const canonical = jcsStringify(entry);
+          sig = await signEntryCanonical(canonical);
+        } catch (err) {
+          console.error('[background] Signing error:', err);
+          sendResponse({ ok: false, error: 'Signing error', details: err });
+          return;
+        }
+        entry.signatures.push(sig);
+
+        try {
+          entry.certificate_summary = await generateCertificateSummary(entry);
+        } catch (err) {
+          console.error('[background] Certificate summary error:', err);
+          sendResponse({ ok: false, error: 'Certificate summary error', details: err });
+          return;
+        }
+
+        sendResponse({ ok: true, entry });
       }
-
-      const entry = {
-        id: uuidv4(),
-        version: "0.0.2",
-        storage: {
-          protocol: anchorType === 'google' ? 'google' : 'local',
-          location: filename,
-          integrity_proof: integrity
-        },
-        identity: {
-          org: "Codex Forge",
-          process: processTag,
-          artifact: filename,
-          subject
-        },
-        anchor,
-        signatures: []
-      };
-
-      const canonical = jcsStringify(entry);
-      const sig = await signEntryCanonical(canonical);
-      entry.signatures.push(sig);
-
-      entry.certificate_summary = await generateCertificateSummary(entry);
-
-      sendResponse({ ok: true, entry });
+    } catch (err) {
+      console.error('[background] Unexpected error:', err);
+      sendResponse({ ok: false, error: 'Unexpected error', details: err });
     }
   })();
   return true;

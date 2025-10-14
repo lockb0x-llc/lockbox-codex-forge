@@ -1,12 +1,31 @@
+
 🚀 Build Plan — Codex Forge Extension Implementation Sprint
 
-We’ll use a “ship in slices” approach:
-	1.	Core protocol foundation (mock signing + mock anchor)
-	2.	Chrome AI metadata generation
-	3.	Google anchor adapters (optional)
-	4.	Schema validation + export polish
+## Current Status (as of 2025-10-14)
 
-Each step is incrementally functional, so you can test and demo at any checkpoint.
+**Step 1: Core Protocol Foundation (mock signing + mock anchor)**
+✅ Complete — Protocol logic, mock anchor, and signing are implemented and working.
+
+**Step 2: Chrome AI Metadata Generation**
+✅ Complete — AI summarization and process tagging are integrated and functional.
+
+**Step 3: Google Anchor Adapters (optional)**
+🟡 In Progress — Google anchor adapter is stubbed; authentication and anchor creation logic are scaffolded. UI supports anchor selection and Google sign-in. UI feedback and error handling are implemented. Next step: integrate real Google API calls for anchor creation.
+
+**Step 4: Schema Validation + Export Polish**
+✅ Complete — Schema validation and export polish are implemented. Validation runs before export and feedback is shown in the popup UI.
+
+For troubleshooting, feature details, and user guidance, see [README.md](../README.md).
+
+---
+
+We’ll use a “ship in slices” approach:
+  1. Core protocol foundation (mock signing + mock anchor)
+  2. Chrome AI metadata generation
+  3. Google anchor adapters (optional)
+  4. Schema validation + export polish
+
+Each step is incrementally functional, so you can test and demo at any checkpoint. Unit tests for protocol, AI, and validation modules are present.
 
 ⸻
 

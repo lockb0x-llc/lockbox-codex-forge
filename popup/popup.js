@@ -1,4 +1,5 @@
 import { uuidv4, sha256, niSha256, jcsStringify, signEntryCanonical, anchorMock, anchorGoogle } from '../lib/protocol.js';
+import { validateCodexEntry } from '../lib/validate.js';
 // ...existing code...
 // popup.js - Handles popup UI logic for Lockb0x Protocol Codex Forge
 
@@ -68,21 +69,28 @@ extractPageBtn && extractPageBtn.addEventListener('click', () => {
 
 // Show/hide Google sign-in button based on anchor type
 
-if (anchorType && googleSignInBtn) {
+const authStatus = document.getElementById('authStatus');
+if (anchorType && googleSignInBtn && authStatus) {
   anchorType.addEventListener('change', () => {
     console.log('[popup] Anchor type changed:', anchorType.value);
     if (anchorType.value === 'google') {
       googleSignInBtn.style.display = 'inline-block';
+      authStatus.textContent = googleAuthToken ? 'Google Authenticated' : 'Google Not Signed In';
+      authStatus.style.color = googleAuthToken ? '#00796b' : '#c62828';
     } else {
       googleSignInBtn.style.display = 'none';
       googleAuthToken = null;
+      authStatus.textContent = 'Using Mock Anchor';
+      authStatus.style.color = '#616161';
     }
   });
+  // Initialize status
+  anchorType.dispatchEvent(new Event('change'));
 }
 
 // Handle Google sign-in
 
-if (googleSignInBtn) {
+if (googleSignInBtn && authStatus) {
   googleSignInBtn.addEventListener('click', () => {
     statusDiv.textContent = 'Signing in to Google...';
     console.log('[popup] Google sign-in button clicked');
@@ -91,8 +99,12 @@ if (googleSignInBtn) {
       if (response && response.ok && response.token) {
         googleAuthToken = response.token;
         statusDiv.textContent = 'Google sign-in successful.';
+        authStatus.textContent = 'Google Authenticated';
+        authStatus.style.color = '#00796b';
       } else {
         statusDiv.textContent = 'Google sign-in failed.';
+        authStatus.textContent = 'Google Not Signed In';
+        authStatus.style.color = '#c62828';
         console.error('[popup] Google sign-in failed:', response);
       }
     });
@@ -124,7 +136,7 @@ entryForm.addEventListener('submit', (e) => {
       anchorType: anchorType ? anchorType.value : 'mock',
       googleAuthToken: googleAuthToken
     }
-  }, (response) => {
+  }, async (response) => {
     console.log('[popup] Codex entry response:', response);
     if (response && response.ok && response.entry) {
       jsonResult.textContent = JSON.stringify(response.entry, null, 2);
@@ -133,6 +145,15 @@ entryForm.addEventListener('submit', (e) => {
       statusDiv.textContent = 'Codex Entry generated.';
       aiSummary.textContent = response.entry.identity.subject || '';
       certificateSummary.textContent = response.entry.certificate_summary || '';
+      // Validate entry against schema
+      const validation = await validateCodexEntry(response.entry);
+      if (validation.valid) {
+        statusDiv.textContent += ' (Schema valid)';
+      } else {
+        statusDiv.textContent += ' (Schema INVALID)';
+        certificateSummary.textContent += '\nSchema errors:\n' + validation.errors.map(e => e.message).join('\n');
+        console.error('[popup] Schema validation errors:', validation.errors);
+      }
     } else {
       statusDiv.textContent = 'Failed to generate entry.';
       console.error('[popup] Failed to generate entry:', response);

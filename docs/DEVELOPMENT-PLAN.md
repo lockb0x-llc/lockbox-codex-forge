@@ -1,6 +1,17 @@
+
 # 🚀 Codex Forge: AI-Assisted Lockb0x Entry Creator
 
 **Project Goal:** A Chrome Extension (Manifest V3) that streamlines the creation of valid Lockb0x Codex Entries (v0.0.2) from web content or user-uploaded files, using Chrome's built-in AI for automated metadata generation.
+
+## Build Status (as of 2025-10-14)
+
+- **Protocol Core (mock anchor, signing):** ✅ Complete
+- **AI Metadata Integration:** ✅ Complete
+- **Google Anchor Integration:** 🟡 In Progress (adapter stubbed, UI and auth logic present)
+- **Schema Validation & Export Polish:** 🟡 Planned
+- **Unit Testing:** 🟡 Planned
+
+For troubleshooting, feature details, and user/contributor guidance, see [README.md](../README.md).
 
 ## 1\. Architecture and Components (Manifest V3)
 

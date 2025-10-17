@@ -139,12 +139,12 @@ entryForm.addEventListener('submit', (e) => {
   }, async (response) => {
     console.log('[popup] Codex entry response:', response);
     if (response && response.ok && response.entry) {
-      jsonResult.textContent = JSON.stringify(response.entry, null, 2);
+      jsonResult.textContent += JSON.stringify(response.entry, null, 2);
       downloadBtn.style.display = 'inline-block';
       copyBtn.style.display = 'inline-block';
-      statusDiv.textContent = 'Codex Entry generated.';
-      aiSummary.textContent = response.entry.identity.subject || '';
-      certificateSummary.textContent = response.entry.certificate_summary || '';
+      statusDiv.textContent += 'Codex Entry generated.';
+      aiSummary.textContent += response.entry.identity.subject || '';
+      certificateSummary.textContent += response.entry.certificate_summary || '';
       // Validate entry against schema
       const validation = await validateCodexEntry(response.entry);
       if (validation.valid) {
@@ -155,8 +155,28 @@ entryForm.addEventListener('submit', (e) => {
         console.error('[popup] Schema validation errors:', validation.errors);
       }
     } else {
-      statusDiv.textContent = 'Failed to generate entry.';
+      let errorMsg = '';
+      errorMsg += 'Failed to generate entry.\n';
+      errorMsg += 'Full response object:\n' + JSON.stringify(response, null, 2) + '\n';
+      if (response && response.error) {
+        errorMsg += 'Error:\n';
+        errorMsg += typeof response.error === 'string' ? response.error + '\n' : JSON.stringify(response.error, null, 2) + '\n';
+      }
+      // Always show the error array, even if empty or undefined
+      if (response && 'details' in response) {
+        errorMsg += 'Schema errors:\n';
+        if (Array.isArray(response.details) && response.details.length > 0) {
+          errorMsg += response.details.map(e => e.message).join('\n') + '\n';
+        } else {
+          errorMsg += JSON.stringify(response.details, null, 2) + '\n';
+        }
+      }
+      statusDiv.textContent += errorMsg;
       console.error('[popup] Failed to generate entry:', response);
+      // Log the entry object for debugging
+      if (response && response.entry) {
+        console.log('[popup] Entry object:', response.entry);
+      }
     }
   });
 });

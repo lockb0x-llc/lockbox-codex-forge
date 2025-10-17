@@ -24,8 +24,10 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 
+
 import { uuidv4, sha256, niSha256, jcsStringify, signEntryCanonical, anchorMock, anchorGoogle } from './lib/protocol.js';
 import { summarizeContent, generateProcessTag, generateCertificateSummary } from './lib/ai.js';
+import { validateCodexEntry } from './lib/validate.js';
 
 // Message handler for popup/content script
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -65,13 +67,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           }
         }
 
+
+        // Use 'https' for Google Drive storage protocol
+        // Use a placeholder for Google Drive file URL/ID in location
+        let storageProtocol = anchorType === 'google' ? 'https' : 'local';
+        let storageLocation = anchorType === 'google'
+          ? 'https://drive.google.com/file/d/DRIVE_FILE_ID' // TODO: Replace with actual Drive file ID
+          : filename;
+
         entry = {
           id: uuidv4(),
           version: "0.0.2",
           storage: {
-            protocol: anchorType === 'google' ? 'google' : 'local',
-            location: filename,
-            integrity_proof: integrity
+            protocol: storageProtocol,
+            location: storageLocation,
+            integrity_proof: integrity // niSha256(hash) already matches required format
           },
           identity: {
             org: "Codex Forge",
@@ -83,24 +93,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           signatures: []
         };
 
-        try {
-          const canonical = jcsStringify(entry);
-          sig = await signEntryCanonical(canonical);
-        } catch (err) {
-          console.error('[background] Signing error:', err);
-          sendResponse({ ok: false, error: 'Signing error', details: err });
+        entry = {
+          id: uuidv4(),
+          version: "0.0.2",
+          storage: {
+            protocol: storageProtocol,
+            location: storageLocation,
+            integrity_proof: integrity // niSha256(hash) already matches required format
+          },
+          identity: {
+            org: "Codex Forge",
+            process: processTag,
+            artifact: filename,
+            subject
+          }
+        };
+
+        // Debug: Print protocol and integrity_proof values
+        console.log('[background] Debug protocol:', entry.storage.protocol);
+        console.log('[background] Debug integrity_proof:', entry.storage.integrity_proof);
+
+        // Validate entry before sending response
+        const validation = await validateCodexEntry(entry);
+        console.log('[background] Schema validation errors:', validation.errors);
+        if (!validation.valid) {
+          sendResponse({ ok: false, error: 'Schema validation failed', details: validation.errors });
           return;
         }
-        entry.signatures.push(sig);
-
-        try {
-          entry.certificate_summary = await generateCertificateSummary(entry);
-        } catch (err) {
-          console.error('[background] Certificate summary error:', err);
-          sendResponse({ ok: false, error: 'Certificate summary error', details: err });
-          return;
-        }
-
         sendResponse({ ok: true, entry });
       }
     } catch (err) {

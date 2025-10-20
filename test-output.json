@@ -1,0 +1,21 @@
+{
+    "id": "141f4f5e-33c6-4425-991b-6b20683eb40a",
+    "version": "0.0.2",
+    "storage": {
+      "protocol": "http",
+      "location": "web-content.txt",
+      "integrity_proof": "ni:///sha-256;3e5bDbe0eKMrvGIqSh71SZxU-lzaCIR6cX8Nc5iZfL0"
+    },
+    "identity": {
+      "org": "Codex Forge",
+      "process": "AI-Summarized-Web-Page",
+      "artifact": "web-content.txt",
+      "subject": "AI Summary: Join a hackathon \nHost a hackathon \nResources \n1\n \nNotifications\n\nLoading...\n\nOverview\nMy projects\nP..."
+    },
+    "anchor": {
+      "chain": "mock:local",
+      "tx": "iTkXu1lHj25LKx4iwkoddKWQ5gHtT0SuGhyLaQW7a7w",
+      "hash_alg": "sha-256"
+    },
+    "signatures": []
+  }

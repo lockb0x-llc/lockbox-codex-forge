@@ -1,6 +1,5 @@
 import { uuidv4, sha256, niSha256, jcsStringify, signEntryCanonical, anchorMock, anchorGoogle } from '../lib/protocol.js';
 import { validateCodexEntry } from '../lib/validate.js';
-// ...existing code...
 // popup.js - Handles popup UI logic for Lockb0x Protocol Codex Forge
 
 const fileInput = document.getElementById('fileInput');
@@ -195,3 +194,33 @@ copyBtn.addEventListener('click', () => {
   navigator.clipboard.writeText(jsonResult.textContent);
   statusDiv.textContent = 'Copied to clipboard.';
 });
+
+// Revoke and refresh Google Auth token on demand
+const refreshGoogleAuth = () => {
+  if (!googleAuthToken) {
+    console.warn('[popup] No Google Auth token to refresh');
+    return;
+  }
+  chrome.identity.removeCachedAuthToken({ token: googleAuthToken }, function() {
+    console.log('[popup] Removed cached auth token');
+    // Optionally, you can get a new token immediately
+    chrome.identity.getAuthToken({ interactive: true }, function(newToken) {
+      if (chrome.runtime.lastError) {
+        console.error('[popup] Error getting new auth token:', chrome.runtime.lastError);
+        return;
+      }
+      googleAuthToken = newToken;
+      console.log('[popup] Got new auth token:', googleAuthToken);
+      statusDiv.textContent = 'Google Auth token refreshed.';
+    });
+  });
+};
+
+// On extension load or popup open
+if (!googleAuthToken) {
+  chrome.identity.getAuthToken({ interactive: false }, function(token) {
+    if (token) googleAuthToken = token;
+  });
+}
+
+// Example: Call refreshGoogleAuth() when you need to refresh the token

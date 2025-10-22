@@ -150,7 +150,7 @@ entryForm.addEventListener('submit', (e) => {
   e.preventDefault();
   console.log('[popup] Generate Codex Entry button clicked');
   const file = fileInput.files[0];
-  if (!extractedBytes || !file) {
+  if (!extractedBytes && !file) {
     showError('No data to process.', 'Upload a file or extract page content first.');
     console.warn('[popup] No data to process');
     return;

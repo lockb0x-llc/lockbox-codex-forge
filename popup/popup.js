@@ -175,16 +175,42 @@ entryForm.addEventListener('submit', (e) => {
   }, async (response) => {
     console.log('[popup] Codex entry response:', response);
     if (response && response.ok && response.entry) {
+      // If Google Drive payload, validate existence before export
+      let payloadExists = true;
+      let payloadValidationMsg = '';
+      if (response.entry.storage && response.entry.storage.protocol === 'gdrive' && response.payloadDriveInfo && response.payloadDriveInfo.id && googleAuthToken) {
+        try {
+          const validatePayload = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+              type: 'VALIDATE_PAYLOAD_EXISTENCE',
+              payload: {
+                fileId: response.payloadDriveInfo.id,
+                token: googleAuthToken
+              }
+            }, resolve);
+          });
+          if (validatePayload && validatePayload.ok && validatePayload.exists) {
+            payloadExists = true;
+            payloadValidationMsg = 'Payload exists on Google Drive.';
+          } else {
+            payloadExists = false;
+            payloadValidationMsg = 'Payload NOT found on Google Drive.';
+          }
+        } catch (err) {
+          payloadExists = false;
+          payloadValidationMsg = 'Error validating payload existence.';
+        }
+      }
       jsonResult.textContent = JSON.stringify(response.entry, null, 2);
-      downloadBtn.style.display = 'inline-block';
+      downloadBtn.style.display = payloadExists ? 'inline-block' : 'none';
       copyBtn.style.display = 'inline-block';
       statusDiv.textContent += ' Codex Entry generated.';
-      statusDiv.style.color = '#00796b';
+      statusDiv.style.color = payloadExists ? '#00796b' : '#c62828';
       aiSummary.textContent += response.entry.identity.subject || '';
       certificateSummary.textContent += response.entry.certificate_summary || '';
-      // Show payload download link if Drive URL is present
+      // Show payload download link if Drive URL is present and exists
       const payloadLink = document.getElementById('payloadDownloadLink');
-      if (response.entry.storage && response.entry.storage.location && response.entry.storage.location.startsWith('https://drive.google.com/')) {
+      if (response.entry.storage && response.entry.storage.location && response.entry.storage.location.startsWith('https://drive.google.com/') && payloadExists) {
         payloadLink.href = response.entry.storage.location;
         payloadLink.style.display = 'inline-block';
       } else {
@@ -199,6 +225,8 @@ entryForm.addEventListener('submit', (e) => {
         certificateSummary.textContent += '\nSchema errors:\n' + validation.errors.map(e => e.message).join('\n');
         console.error('[popup] Schema validation errors:', validation.errors);
       }
+      // Show payload existence validation result
+      statusDiv.textContent += `\n${payloadValidationMsg}`;
     } else {
       let errorMsg = '';
       errorMsg += 'Failed to generate entry.\n';

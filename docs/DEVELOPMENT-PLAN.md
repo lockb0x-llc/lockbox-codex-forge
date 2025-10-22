@@ -22,18 +22,19 @@
 - Document workflow and expected results for users and testers
 
 ### Schema Validation & Export
-- Validate that payload file exists and Drive link is valid before export
-- Display validation results and errors in popup
+- Validate that payload file exists and Drive link is valid before export, using Drive API metadata check (see background.js: checkDriveFileExists)
+- Display validation results and errors in popup, including payload existence status and download link visibility
 
 ### Testing & QA
-- Add unit tests for binary file uploads, payload storage, and anchor logic
-- Expand tests for Google anchor integration and edge cases
-- Test end-to-end flows for all anchor types and export scenarios
+- Add unit tests for binary file uploads, payload storage, anchor logic, and payload existence validation (see background.test.js)
+- Expand tests for Google anchor integration, Drive file existence, and edge cases
+- Test end-to-end flows for all anchor types, export scenarios, and payload validation
 
 ### Documentation & Contributor Guide
 - Update README and docs with troubleshooting, usage, and contribution guidelines
-- Document Google anchor integration and schema validation flow
+- Document Google anchor integration, schema validation flow, and payload existence validation (background.js, popup.js)
 - Add verification instructions and sample scripts for users
+- Contributors: When adding new anchor/storage types, ensure existence validation is implemented and tested. See background.test.js for test patterns.
 
 ### Roadmap Summary
 - Complete all improvements above for robust, user-friendly release

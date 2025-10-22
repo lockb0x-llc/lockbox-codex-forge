@@ -87,6 +87,26 @@ function buildUnsignedCodexEntry({
     signatures: []
   };
 }
+// Utility: Check if a file exists on Google Drive by fileId and OAuth token
+async function checkDriveFileExists({ fileId, token }) {
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,trashed`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[Drive Existence Check] ${res.status}: ${err}`);
+  }
+  const metadata = await res.json();
+  // If file is trashed, treat as not existing
+  if (metadata.trashed) {
+    throw new Error('[Drive Existence Check] File is trashed');
+  }
+  return metadata; // { id, name, mimeType, trashed }
+}
 // Utility: Upload a file to Google Drive and return fileId and webViewLink
 async function uploadFileToGoogleDrive({ bytes, filename, mimeType = 'application/octet-stream', token }) {
   const metadata = {
@@ -127,7 +147,6 @@ async function uploadFileToGoogleDrive({ bytes, filename, mimeType = 'applicatio
 // Google OAuth token storage
 let googleAuthToken = null;
 
-// Handle Google authentication request
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'GOOGLE_AUTH_REQUEST') {
     chrome.identity.getAuthToken({ interactive: true }, (token) => {
@@ -143,25 +162,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
-});
-// background.js - Chrome Extension Service Worker
-// Handles background tasks for Lockb0x Protocol Codex Forge
-
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('Lockb0x Protocol Codex Forge extension installed.');
-});
-
-
-
-import { uuidv4, sha256, niSha256, jcsStringify, signEntryCanonical, anchorMock, anchorGoogle } from './lib/protocol.js';
-import { summarizeContent, generateProcessTag, generateCertificateSummary } from './lib/ai.js';
-import { validateCodexEntry } from './lib/validate.js';
-
-// Message handler for popup/content script
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  (async () => {
-    try {
-      if (msg.type === "CREATE_CODEX_FROM_FILE") {
+  // Validate payload existence before export
+  if (msg.type === 'VALIDATE_PAYLOAD_EXISTENCE') {
+    (async function() {
+      try {
+        const { fileId, token } = msg.payload;
+        const metadata = await checkDriveFileExists({ fileId, token });
+        sendResponse({ ok: true, exists: true, metadata });
+      } catch (err) {
+        sendResponse({ ok: false, exists: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+  if (msg.type === "CREATE_CODEX_FROM_FILE") {
+    (async function() {
+      try {
         const { bytes, filename, anchorType, googleAuthToken } = msg.payload;
         const fileBytes = new Uint8Array(bytes);
         let payloadDriveInfo = null;
@@ -176,12 +192,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let fileText = null;
         // Step 1: Upload payload to Google Drive (if Google anchor)
         if (anchorType === 'google' && googleAuthToken) {
+          let mimeType = 'application/octet-stream';
+          if (filename.match(/\.txt$/i)) mimeType = 'text/plain';
+          else if (filename.match(/\.json$/i)) mimeType = 'application/json';
+          else if (filename.match(/\.md$/i)) mimeType = 'text/markdown';
           try {
-            // Detect MIME type from filename
-            let mimeType = 'application/octet-stream';
-            if (filename.match(/\.txt$/i)) mimeType = 'text/plain';
-            else if (filename.match(/\.json$/i)) mimeType = 'application/json';
-            else if (filename.match(/\.md$/i)) mimeType = 'text/markdown';
             payloadDriveInfo = await uploadFileToGoogleDrive({
               bytes: fileBytes,
               filename,
@@ -198,7 +213,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         try {
           hash = await sha256(fileBytes);
           integrity = niSha256(hash);
-          // Only decode as text if file is text
           if (filename.match(/\.(txt|md|json)$/i)) {
             fileText = new TextDecoder().decode(fileBytes);
             subject = await summarizeContent(fileText);
@@ -234,54 +248,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // Step 4: Build unsigned Codex entry
         const codexId = uuidv4();
         entry = buildUnsignedCodexEntry({
-          // Ensure workflow and reference consistency
           id: codexId,
           payloadDriveId: payloadDriveInfo ? payloadDriveInfo.id : undefined,
           payloadDriveUrl: payloadDriveInfo ? `https://drive.google.com/file/d/${payloadDriveInfo.id}` : filename,
           integrity_proof: integrity,
           org: "Codex Forge",
           process: processTag,
-          artifact: filename, // Always set artifact to filename
+          artifact: filename,
           subject,
           anchor,
-          protocol: (anchorType === 'google' && payloadDriveInfo) ? 'gdrive' : 'local' // Set protocol for storage
+          protocol: (anchorType === 'google' && payloadDriveInfo) ? 'gdrive' : 'local'
         });
-        // Step 5: Sign Codex entry
         await signCodexEntry(entry);
-        // Step 6: Upload signed Codex entry to Drive (if Google anchor)
         if (anchorType === 'google' && googleAuthToken) {
           try {
             codexDriveInfo = await uploadCodexEntryToGoogleDrive({ entry, token: googleAuthToken });
           } catch (err) {
             console.error('[background] Google Drive Codex entry upload error:', err);
             sendResponse({ ok: false, error: 'Google Drive Codex entry upload error', details: err });
-            // Ensure workflow and reference consistency in Codex entry
-            return {
-              id,
-              version,
-              storage: {
-                protocol: protocol || "gdrive",
-                location: payloadDriveUrl || `https://drive.google.com/file/d/${payloadDriveId}`,
-                integrity_proof
-              },
-              identity: {
-                org,
-                process,
-                artifact,
-                subject
-              },
-              anchor,
-              signatures: []
-            };
+            return;
+          }
         }
-  // Debug: Print protocol value before validation
-  console.log('[background] Debug protocol before validation:', entry.storage.protocol);
+        console.log('[background] Debug protocol before validation:', entry.storage.protocol);
         const validation = await validateCodexEntry(entry);
         if (!validation.valid) {
           sendResponse({ ok: false, error: 'Schema validation failed', details: validation.errors });
           return;
         }
-        // Step 9: Return all info to UI
         sendResponse({
           ok: true,
           entry,
@@ -289,11 +282,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           codexDriveInfo,
           codexSelfRefInfo
         });
+      } catch (err) {
+        console.error('[background] Unexpected error:', err);
+        sendResponse({ ok: false, error: 'Unexpected error', details: err });
       }
-    } catch (err) {
-      console.error('[background] Unexpected error:', err);
-      sendResponse({ ok: false, error: 'Unexpected error', details: err });
-    }
-  })();
-  return true;
-});
+    })();
+    return true;
+  }
+  return false;
+

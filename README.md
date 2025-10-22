@@ -14,14 +14,21 @@ Lockb0x Codex Forge is a Chrome Extension that streamlines the creation of secur
 - Updated documentation and contributor guides
 
 ## Workflow & Features
+### Codex Entry Reference Consistency & Payload Existence Validation
+
+- **artifact**: The original filename of the uploaded payload. Stored in `identity.artifact` and required for all entries.
+- **storage.location**: The URL or path where the payload is stored. For Google Drive anchors, this is the Drive file URL; for local/mock anchors, it may be the filename or a local path. Must always reference the actual payload file.
+- **Validation**: The extension ensures `artifact` and `storage.location` are set and consistent for every Codex entry. The schema validator checks both fields. For Drive payloads, the extension validates existence before export using the Drive API (see background.js: checkDriveFileExists). If the file is missing or trashed, export is blocked and the UI displays a clear error.
+
+Workflow Steps:
 1. **Upload File or Extract Page Content:** Select a file (text, PDF, JSON, etc.) or extract content from the current web page.
 2. **Anchor Selection:** Choose between mock or Google anchor. Sign in with Google for Drive integration.
 3. **Payload Storage:** Uploaded files are stored in Google Drive (for Google anchor) and referenced in the Codex entry.
 4. **Codex Entry Generation:** The extension hashes, canonicalizes, signs, and anchors your entry, using AI to generate metadata.
-5. **Export & Verification:** Download the Codex entry, copy to clipboard, and verify schema/signature in the popup. Download the original payload from Drive.
+5. **Export & Verification:** Before export, the extension validates payload existence (Drive API metadata check). Download the Codex entry, copy to clipboard, and verify schema/signature in the popup. Download the original payload from Drive (if validated).
 
 ## Verification Instructions
-- Download the payload from the Drive link in the Codex entry
+- Download the payload from the Drive link in the Codex entry (only if existence is validated)
 - Compute SHA-256 hash and compare to integrity_proof
 - Confirm anchor file exists and matches metadata
 - Validate ES256 signature using the JWK in kid
@@ -31,6 +38,10 @@ Lockb0x Codex Forge is a Chrome Extension that streamlines the creation of secur
 - Complete all improvements for robust, user-friendly release
 - Finalize for hackathon/demo/production submission
 - See DEVELOPMENT-PLAN.md for full checklist and technical milestones
+
+## Contributor Guide
+- When adding new anchor/storage types, ensure existence validation is implemented and tested. See background.js and background.test.js for patterns.
+- Document new validation logic and update tests as needed.
 
 ## Troubleshooting & Support
 - See AGENTS.md and GoogleCloudAnchor.md for action plans, debugging, and integration status

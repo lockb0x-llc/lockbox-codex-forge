@@ -142,6 +142,9 @@ entryForm.addEventListener('submit', (e) => {
   })();
 
   function handleCodexResponse(response) {
+  // Robust error handling: always update UI for both success and error cases
+  // - If response.ok and response.entry, update UI with entry details
+  // - If error or schema validation fails, show error details and recovery instructions
     console.log('[popup] Codex entry response:', response);
     if (response && response.ok && response.entry) {
       // If Google Drive payload, validate existence before export
@@ -177,13 +180,22 @@ entryForm.addEventListener('submit', (e) => {
         updateCodexUI(domRefs, response, payloadExists, payloadValidationMsg);
       }
     } else {
-      let errorMsg = '';
-      errorMsg += 'Failed to generate entry.\n';
+      // Always show schema validation errors and any error details
+      let errorMsg = 'Failed to generate entry.';
+      let recoveryMsg = 'Check error details below and try again.';
       if (Array.isArray(response.details) && response.details.length > 0) {
-        errorMsg += 'Schema errors:\n';
-        errorMsg += response.details.map(e => e.message).join('\n') + '\n';
+        errorMsg += '\nSchema validation errors:';
+        errorMsg += '\n' + response.details.map(e => '- ' + e.message).join('\n');
+        recoveryMsg = 'Please fix the schema errors above.';
+      } else if (response.error) {
+        errorMsg += `\nError: ${response.error}`;
+        if (response.details && typeof response.details === 'string') {
+          errorMsg += `\nDetails: ${response.details}`;
+        }
       }
-      showError(statusDiv, errorMsg, 'Check error details above and try again.');
+      showError(statusDiv, errorMsg, recoveryMsg);
+      // Optionally, log errors to console for developer visibility
+      console.error('[popup] Codex entry error:', response);
     }
 
     if (isLargeFile) {

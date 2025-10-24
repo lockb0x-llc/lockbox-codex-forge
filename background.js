@@ -35,6 +35,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg.type === "CREATE_CODEX_FROM_FILE") {
+  // Always send a response for unhandled message types
+  if (!['GOOGLE_AUTH_REQUEST','VALIDATE_PAYLOAD_EXISTENCE','CREATE_CODEX_FROM_FILE'].includes(msg.type)) {
+    sendResponse({ ok: false, error: 'Unknown message type' });
+    return false;
+  }
     (async function() {
       try {
         const { bytes, filename, anchorType, googleAuthToken } = msg.payload;

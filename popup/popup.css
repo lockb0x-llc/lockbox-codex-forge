@@ -1,3 +1,14 @@
+/* Status Stepper Styles */
+.status-stepper {
+  margin: 16px 0;
+}
+.status-stepper .step {
+  margin-bottom: 4px;
+}
+#step-error {
+  display: none;
+  color: #c62828;
+}
 body {
   font-family: Arial, sans-serif;
   margin: 16px;

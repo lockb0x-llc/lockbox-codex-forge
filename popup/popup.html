@@ -34,6 +34,16 @@
     <button id="copyBtn">Copy to Clipboard</button>
     <a id="payloadDownloadLink" href="#" target="_blank" style="display:none; margin-left:10px;">Download Payload from Drive</a>
   </div>
+  <div id="statusStepper" class="status-stepper">
+    <div class="step" id="step-upload">1. Upload <span class="step-status"></span></div>
+    <div class="step" id="step-hash">2. Hash <span class="step-status"></span></div>
+    <div class="step" id="step-anchor">3. Anchor <span class="step-status"></span></div>
+    <div class="step" id="step-codex">4. Codex Entry <span class="step-status"></span></div>
+    <div class="step" id="step-validate">5. Validate <span class="step-status"></span></div>
+    <div class="step" id="step-upload-codex">6. Upload Codex <span class="step-status"></span></div>
+    <div class="step" id="step-success">7. Success <span class="step-status"></span></div>
+  <div class="step" id="step-error">Error <span class="step-status"></span></div>
+  </div>
   <div id="loading">Generating entry…</div>
   <div id="status" aria-live="polite"></div>
   <script type="module" src="popup.js"></script>

@@ -1,3 +1,135 @@
+// Handles Codex entry generation responses for both small and large files
+function handleCodexResponse(response) {
+  // Stepper updates for small file workflow
+  if (response && response.ok && response.entry) {
+    updateStepper('step-upload','done');
+    updateStepper('step-hash','done');
+    updateStepper('step-anchor','done');
+    updateStepper('step-codex','done');
+    updateStepper('step-validate','done');
+    updateStepper('step-upload-codex','done');
+    updateStepper('step-success','done');
+  } else if (response && typeof response.ok !== 'undefined') {
+    updateStepper('step-error','error');
+    document.getElementById('step-error').style.display = 'block';
+  }
+  console.log('[popup] Codex entry response:', response);
+  if (response && response.ok && response.entry) {
+    // If Google Drive payload, validate existence before export
+    let payloadExists = true;
+    let payloadValidationMsg = '';
+    if (response.entry.storage && response.entry.storage.protocol === 'gdrive' && response.payloadDriveInfo && response.payloadDriveInfo.id && googleAuthToken) {
+      (async () => {
+        try {
+          const validatePayload = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+              type: 'VALIDATE_PAYLOAD_EXISTENCE',
+              payload: {
+                fileId: response.payloadDriveInfo.id,
+                token: googleAuthToken
+              }
+            }, resolve);
+          });
+          if (validatePayload && validatePayload.ok && validatePayload.exists) {
+            payloadExists = true;
+            payloadValidationMsg = 'Payload exists on Google Drive.';
+          } else {
+            payloadExists = false;
+            payloadValidationMsg = 'Payload NOT found on Google Drive.';
+          }
+        } catch (err) {
+          payloadExists = false;
+          payloadValidationMsg = 'Error validating payload existence.';
+        }
+        updateCodexUI(response, payloadExists, payloadValidationMsg);
+      })();
+    } else {
+      updateCodexUI(response, payloadExists, payloadValidationMsg);
+    }
+  } else if (response && typeof response.ok !== 'undefined') {
+    let errorMsg = '';
+    errorMsg += 'Failed to generate entry.\n';
+    errorMsg += 'Full response object:\n' + JSON.stringify(response, null, 2) + '\n';
+    if (response && response.error) {
+      errorMsg += 'Error:\n';
+      errorMsg += JSON.stringify(response.error, null, 2) + '\n';
+    }
+    // Always show the error array, even if empty or undefined
+    if (response && 'details' in response) {
+      errorMsg += 'Schema errors:\n';
+      if (Array.isArray(response.details) && response.details.length > 0) {
+        errorMsg += response.details.map(e => e.message).join('\n') + '\n';
+      } else {
+        errorMsg += JSON.stringify(response.details, null, 2) + '\n';
+      }
+    }
+    showError(errorMsg, 'Check error details above and try again.');
+    console.error('[popup] Failed to generate entry:', JSON.stringify(response, null, 2));
+    // Log the entry object for debugging
+    if (response && response.entry) {
+      console.log('[popup] Entry object:', response.entry);
+    }
+  }
+}
+// Update stepper UI for each step
+function updateStepper(step, status) {
+  const el = document.getElementById(step);
+  if (!el) return;
+  const statusSpan = el.querySelector('.step-status');
+  if (status === 'done') {
+    statusSpan.textContent = '✔';
+    el.style.color = '#00796b';
+  } else if (status === 'active') {
+    statusSpan.textContent = '...';
+    el.style.color = '#0277bd';
+  } else if (status === 'error') {
+    statusSpan.textContent = '✖';
+    el.style.color = '#c62828';
+  } else {
+    statusSpan.textContent = '';
+    el.style.color = '';
+  }
+}
+// Utility to show error and recovery instructions in the popup
+function showError(message, recovery) {
+  statusDiv.textContent = `Error: ${message}`;
+  statusDiv.style.color = '#c62828';
+  if (recovery) {
+    statusDiv.textContent += `\nRecovery: ${recovery}`;
+  }
+  console.error('[popup] Error:', message, recovery || '');
+}
+
+  // Update Codex UI with entry and payload status
+  function updateCodexUI(response, payloadExists, payloadValidationMsg) {
+    // Show Codex entry JSON
+    if (jsonResult) {
+      jsonResult.textContent = response && response.entry ? JSON.stringify(response.entry, null, 2) : '';
+      jsonResult.style.display = response && response.entry ? 'block' : 'none';
+    }
+    // Show certificate summary if present
+    if (certificateSummary) {
+      certificateSummary.textContent = response && response.entry && response.entry.certificate ?
+        'Certificate: ' + JSON.stringify(response.entry.certificate, null, 2) : '';
+      certificateSummary.style.display = response && response.entry && response.entry.certificate ? 'block' : 'none';
+    }
+    // Show AI summary if present
+    if (aiSummary) {
+      aiSummary.textContent = response && response.entry && response.entry.ai ?
+        'AI Summary: ' + JSON.stringify(response.entry.ai, null, 2) : '';
+      aiSummary.style.display = response && response.entry && response.entry.ai ? 'block' : 'none';
+    }
+    // Show payload validation message if provided
+    if (payloadValidationMsg && statusDiv) {
+      statusDiv.textContent = payloadValidationMsg;
+      statusDiv.style.color = payloadExists ? '#00796b' : '#c62828';
+    }
+    // Show success message
+    if (response && response.ok && response.entry && statusDiv) {
+      statusDiv.textContent = 'Codex entry generated successfully.' + (payloadValidationMsg ? ('\n' + payloadValidationMsg) : '');
+      statusDiv.style.color = '#00796b';
+    }
+  }
 import { uuidv4, sha256, niSha256, jcsStringify, signEntryCanonical, anchorMock, anchorGoogle } from '../lib/protocol.js';
 import { updateCodexUI, showError, validateAndShowEntry } from '../lib/codex-ui-utils.js';
 import { refreshGoogleAuthToken, loadGoogleAuthToken } from '../lib/google-auth-utils.js';
@@ -105,188 +237,69 @@ if (anchorType && googleSignInBtn && authStatus) {
 
 entryForm.addEventListener('submit', (e) => {
   e.preventDefault();
-  console.log('[popup] Generate Codex Entry button clicked');
+  // Prepare file/bytes and determine large file
   const file = fileInput.files[0];
-  if (!extractedBytes && !file) {
-    showError('No data to process.', 'Upload a file or extract page content first.');
-    console.warn('[popup] No data to process');
-    return;
-  }
-  metadata = {
-    anchorType: anchorType ? anchorType.value : 'mock',
-    googleAuthToken: googleAuthToken
-    // Add more metadata fields as needed
-  };
-  statusDiv.textContent = 'Generating Codex Entry...';
-  statusDiv.style.color = '#00796b';
-  aiSummary.textContent = '';
-  certificateSummary.textContent = '';
-
-  // --- Large file support ---
   const CHUNK_SIZE = 1024 * 1024; // 1MB
   const LARGE_FILE_THRESHOLD = 3 * 1024 * 1024; // 3MB
-  const bytes = extractedBytes ? extractedBytes : new Uint8Array();
+  const bytes = extractedBytes ? extractedBytes : (file ? new Uint8Array() : null);
+  const filename = file ? file.name : 'extracted.txt';
   const isLargeFile = bytes && bytes.length > LARGE_FILE_THRESHOLD;
-  const filename = file ? file.name : (() => {
-    let pageTitle = '';
-    try {
-      pageTitle = document.title.replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, 40);
-    } catch (e) {
-      pageTitle = 'untitled';
-    }
-    const now = new Date();
-    const y = String(now.getFullYear()).slice(-2);
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return `ce-current--${pageTitle}-${y}${m}${d}.txt`;
-  })();
-
-  function handleCodexResponse(response) {
-  // Robust error handling: always update UI for both success and error cases
-  // - If response.ok and response.entry, update UI with entry details
-  // - If error or schema validation fails, show error details and recovery instructions
-    console.log('[popup] Codex entry response:', response);
-    if (response && response.ok && response.entry) {
-      // If Google Drive payload, validate existence before export
-      let payloadExists = true;
-      let payloadValidationMsg = '';
-      const domRefs = { statusDiv, jsonResult, downloadBtn, copyBtn, aiSummary, certificateSummary };
-      if (response.entry.storage && response.entry.storage.protocol === 'gdrive' && response.payloadDriveInfo && response.payloadDriveInfo.id && googleAuthToken) {
-        (async () => {
-          try {
-            const validatePayload = await new Promise((resolve) => {
-              chrome.runtime.sendMessage({
-                type: 'VALIDATE_PAYLOAD_EXISTENCE',
-                payload: {
-                  fileId: response.payloadDriveInfo.id,
-                  token: googleAuthToken
-                }
-              }, resolve);
-            });
-            if (validatePayload && validatePayload.ok && validatePayload.exists) {
-              payloadExists = true;
-              payloadValidationMsg = 'Payload exists on Google Drive.';
-            } else {
-              payloadExists = false;
-              payloadValidationMsg = 'Payload NOT found on Google Drive.';
-            }
-          } catch (err) {
-            payloadExists = false;
-            payloadValidationMsg = 'Error validating payload existence.';
-          }
-          updateCodexUI(domRefs, response, payloadExists, payloadValidationMsg);
-        })();
-      } else {
-        updateCodexUI(domRefs, response, payloadExists, payloadValidationMsg);
+  if (isLargeFile) {
+    // Wake up service worker before Port connection
+    chrome.runtime.sendMessage({ type: 'PING' }, function(response) {
+      if (chrome.runtime.lastError) {
+        console.warn('[popup] PING lastError:', chrome.runtime.lastError.message);
       }
-    } else {
-      // Always show schema validation errors and any error details
-      let errorMsg = 'Failed to generate entry.';
-      let recoveryMsg = 'Check error details below and try again.';
-      if (Array.isArray(response.details) && response.details.length > 0) {
-        errorMsg += '\nSchema validation errors:';
-        errorMsg += '\n' + response.details.map(e => '- ' + e.message).join('\n');
-        recoveryMsg = 'Please fix the schema errors above.';
-      } else if (response.error) {
-        errorMsg += `\nError: ${response.error}`;
-        if (response.details && typeof response.details === 'string') {
-          errorMsg += `\nDetails: ${response.details}`;
-        }
-      }
-      showError(statusDiv, errorMsg, recoveryMsg);
-      // Optionally, log errors to console for developer visibility
-      console.error('[popup] Codex entry error:', response);
-    }
-
-    if (isLargeFile) {
-      // Wake up service worker before Port connection
-      chrome.runtime.sendMessage({ type: 'PING' }, () => {
-        // Use Port-based chunked transfer
-        const port = chrome.runtime.connect();
-        let sentChunks = 0;
-        let totalChunks = Math.ceil(bytes.length / CHUNK_SIZE);
-        statusDiv.textContent = `Uploading large file in ${totalChunks} chunks...`;
-        // Progress bar setup
-        let progressBar = document.getElementById('uploadProgressBar');
-        if (!progressBar) {
-          progressBar = document.createElement('progress');
-          progressBar.id = 'uploadProgressBar';
-          progressBar.max = totalChunks;
-          progressBar.value = 0;
-          statusDiv.parentNode.insertBefore(progressBar, statusDiv.nextSibling);
-        } else {
-          progressBar.max = totalChunks;
-          progressBar.value = 0;
-          progressBar.style.display = 'block';
-        }
-        // Disable form during upload
-        entryForm.querySelectorAll('input, button, select').forEach(el => el.disabled = true);
-        // Send metadata first
-        port.postMessage({
-          type: 'START_LARGE_FILE_UPLOAD',
-          filename,
-          anchorType: anchorType ? anchorType.value : 'mock',
-          googleAuthToken: googleAuthToken,
-          totalChunks
-        });
-        // Send chunks
-        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-          const chunk = bytes.slice(i, i + CHUNK_SIZE);
-          port.postMessage({
-            type: 'LARGE_FILE_CHUNK',
-            chunkIndex: sentChunks,
-            chunk: Array.from(chunk)
-          });
-          sentChunks++;
-        }
-        // Signal completion
-        port.postMessage({ type: 'END_LARGE_FILE_UPLOAD' });
-        port.onMessage.addListener((msg) => {
-          if (msg.status === 'started') {
-            statusDiv.textContent = 'Upload started...';
-          } else if (msg.status === 'chunk-received') {
-            statusDiv.textContent = `Chunk ${msg.chunkIndex + 1} of ${totalChunks} uploaded...`;
-            progressBar.value = msg.chunkIndex + 1;
-            if (msg.chunkIndex + 1 === totalChunks) {
-              statusDiv.textContent = 'All chunks uploaded. Processing file...';
-              progressBar.value = totalChunks;
-            }
-          } else if (msg.status === 'processing') {
-            statusDiv.textContent = 'Processing file and computing hash...';
-          } else if (msg.status === 'drive-upload') {
-            statusDiv.textContent = 'Uploading payload to Google Drive...';
-          } else if (msg.status === 'codex-generation') {
-            statusDiv.textContent = 'Generating Codex entry...';
-          } else if (msg.ok === false) {
-            showError(statusDiv, `Error: ${msg.error}`, 'Check error details above and try again.');
-            progressBar.style.display = 'none';
-            entryForm.querySelectorAll('input, button, select').forEach(el => el.disabled = false);
-          } else if (msg.ok === true) {
-            statusDiv.textContent = 'Codex entry generated!';
-            progressBar.style.display = 'none';
-            entryForm.querySelectorAll('input, button, select').forEach(el => el.disabled = false);
-            jsonResult.textContent = JSON.stringify(msg.entry, null, 2);
-            // Show download/copy buttons, display entry, etc.
-            const domRefs = { statusDiv, jsonResult, downloadBtn, copyBtn, aiSummary, certificateSummary };
-            updateCodexUI(domRefs, msg, true, 'Payload exists on Google Drive.');
-          }
-        });
+      // Use Port-based chunked transfer
+      const port = chrome.runtime.connect();
+      let sentChunks = 0;
+      let totalChunks = Math.ceil(bytes.length / CHUNK_SIZE);
+      statusDiv.textContent = `Uploading large file in ${totalChunks} chunks...`;
+      updateStepper('step-upload','active');
+      // Send metadata first
+      port.postMessage({
+        type: 'START_LARGE_FILE_UPLOAD',
+        filename,
+        anchorType: anchorType ? anchorType.value : 'mock',
+        googleAuthToken: googleAuthToken,
+        totalChunks
       });
-    } else {
-      // Use existing sendMessage workflow for small files
-      chrome.runtime.sendMessage({
-        type: 'CREATE_CODEX_FROM_FILE',
-        payload: {
-          bytes: Array.from(bytes),
-          filename,
-          anchorType: anchorType ? anchorType.value : 'mock',
-          googleAuthToken: googleAuthToken
-        }
-      }, handleCodexResponse);
-    }
+      // Send chunks
+      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+        const chunk = bytes.slice(i, i + CHUNK_SIZE);
+        port.postMessage({
+          type: 'LARGE_FILE_CHUNK',
+          chunkIndex: sentChunks,
+          chunk: Array.from(chunk)
+        });
+        sentChunks++;
+        statusDiv.textContent = `Uploading chunk ${sentChunks} of ${totalChunks}...`;
+      }
+      // Signal completion
+      port.postMessage({ type: 'END_LARGE_FILE_UPLOAD' });
+      port.onMessage.addListener(function(msg) {
+        handleCodexResponse(msg);
+      });
+    });
+  } else {
+    // Use existing sendMessage workflow for small files
+    chrome.runtime.sendMessage({
+      type: 'CREATE_CODEX_FROM_FILE',
+      payload: {
+        bytes: Array.from(bytes),
+        filename,
+        anchorType: anchorType ? anchorType.value : 'mock',
+        googleAuthToken: googleAuthToken
+      }
+    }, function(response) {
+      if (chrome.runtime.lastError) {
+        console.warn('[popup] CREATE_CODEX_FROM_FILE lastError:', chrome.runtime.lastError.message);
+      }
+      handleCodexResponse(response);
+    });
   }
-
-});
+}
+);
 
 downloadBtn.addEventListener('click', () => {
   const blob = new Blob([jsonResult.textContent], {type: 'application/json'});

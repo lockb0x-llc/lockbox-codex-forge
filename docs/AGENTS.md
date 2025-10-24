@@ -6,14 +6,15 @@
 
 ### Progress
 - Protocol core and AI metadata integration are complete and working.
-- Google anchor integration is in progress (adapter stubbed, UI/auth logic present; UI feedback and error handling improved).
+- Google anchor integration is complete: payloads are now saved to the authenticated user's Google Drive account, and existence is validated before export.
+- Binary file upload support and robust payload storage are implemented.
+- Codex entry can be downloaded as a JSON file from the popup UI.
 - Schema validation and export polish are implemented and working in the popup.
 - Unit testing for protocol, AI, and validation modules is implemented.
 
 ### Next Actions
- Add support for binary file uploads and robust payload storage. (complete)
- Improve error handling and UI feedback for all user actions. (in progress)
- Persist Google auth token for session reliability. (complete)
+- Continue improving error handling and UI feedback for all user actions. (in progress)
+- Expand documentation and contributor guides as new features are added.
 
 ---
 

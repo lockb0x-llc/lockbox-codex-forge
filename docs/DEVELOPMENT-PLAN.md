@@ -3,9 +3,11 @@
 ## Comprehensive Improvement Plan (2025-10-20)
 
 ### File Upload & Payload Storage
-- Add support for binary file uploads (use readAsArrayBuffer for non-text files)
-- Ensure storage.location always references the actual uploaded payload file
-- Add UI link/button to download the payload from Drive
+- Binary file upload support is complete (all payloads supported, including non-text files)
+- Uploaded payloads are saved to the authenticated user's Google Drive account (Google anchor)
+- UI provides a download link for the payload from Drive after validation
+- Codex entry can be downloaded as a JSON file from the popup UI
+- Storage.location always references the actual uploaded payload file
 - Prevent overwriting payload file when uploading Codex entry
 
 ### Error Handling & UI Feedback
@@ -37,7 +39,8 @@
 - Contributors: When adding new anchor/storage types, ensure existence validation is implemented and tested. See background.test.js for test patterns.
 
 ### Roadmap Summary
-- Complete all improvements above for robust, user-friendly release
+- All major improvements above are now implemented for a robust, user-friendly release
+- Continue expanding documentation, error handling, and contributor guides as new features are added
 - Finalize for hackathon/demo/production submission
 
 ## Hackathon Submission Strategy

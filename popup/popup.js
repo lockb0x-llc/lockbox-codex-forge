@@ -132,6 +132,7 @@ function showError(message, recovery) {
   }
 import { uuidv4, sha256, niSha256, jcsStringify, signEntryCanonical, anchorMock, anchorGoogle } from '../lib/protocol.js';
 import { validateCodexEntry } from '../lib/validate.js';
+import { summarizeText } from '../lib/ai.js';
 // popup.js - Handles popup UI logic for Lockb0x Protocol Codex Forge
 
 const fileInput = document.getElementById('fileInput');
@@ -207,13 +208,25 @@ extractPageBtn && extractPageBtn.addEventListener('click', () => {
     chrome.scripting.executeScript({
       target: {tabId: tab.id},
       func: () => document.body.innerText
-    }, (results) => {
+    }, async (results) => {
       console.log('[popup] Scripting results:', results);
       if (results && results[0] && results[0].result) {
         extractedData = results[0].result;
         extractedBytes = new TextEncoder().encode(extractedData);
-        statusDiv.textContent = 'Page content extracted.';
-        statusDiv.style.color = '#00796b';
+        // Use Summarizer API for summary
+        try {
+          const summary = await summarizeText(extractedData);
+          aiSummary.textContent = summary;
+          aiSummary.style.display = 'block';
+          statusDiv.textContent = 'Page content extracted and summarized.';
+          statusDiv.style.color = '#00796b';
+        } catch (err) {
+          aiSummary.textContent = '';
+          aiSummary.style.display = 'none';
+          statusDiv.textContent = 'Page content extracted, but summarization failed.';
+          statusDiv.style.color = '#c62828';
+          console.error('[popup] Summarizer API error:', err);
+        }
       } else {
         showError('Failed to extract page content.', 'Reload the page or check permissions.');
         console.error('[popup] Failed to extract page content:', results);

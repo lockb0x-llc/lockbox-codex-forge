@@ -98,3 +98,43 @@ Lockb0x Codex Forge — Secure, AI-powered, and ready for the future of digital 
 - For anchor and signing errors, see the console logs in background.js for detailed error traces.
 
 For more help, see `docs/AGENTS.md` for a full action plan and debugging checklist.
+
+## Secure Manifest & OAuth Client ID Handling
+
+Chrome extensions must not expose secrets (such as Google OAuth client IDs) in source control. This project uses a secure build process:
+
+1. **manifest.template.json** — Contains a placeholder `${CHROME_OAUTH_CLIENT_ID}` for the OAuth client ID.
+2. **.env** — Store your actual client ID here. This file is NOT committed to source control.
+3. **.env.example** — Public template for contributors, with instructions for adding secrets.
+4. **build-manifest.js** — Node.js script that reads `.env` and generates `manifest.json` with the real client ID.
+5. **manifest.json** — Generated file, used by Chrome. Do NOT edit directly.
+
+### Workflow for Contributors
+- Edit `manifest.template.json` for manifest changes. Use `${CHROME_OAUTH_CLIENT_ID}` for the client ID.
+- Add your real client ID to `.env` (see `.env.example` for format).
+- Run `npm run build-manifest` to generate `manifest.json` before packaging or loading the extension.
+- Do NOT commit `.env` or `manifest.json` to source control.
+- Only commit `manifest.template.json`, `.env.example`, and the build script.
+
+### Example .env
+```
+CHROME_OAUTH_CLIENT_ID=your-google-oauth-client-id-here
+```
+
+### Example manifest.template.json
+```
+"oauth2": {
+  "client_id": "${CHROME_OAUTH_CLIENT_ID}",
+  "scopes": [
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/userinfo.email"
+  ]
+}
+```
+
+### Build Command
+```
+npm run build-manifest
+```
+
+This ensures secrets are never exposed in source control and the extension is packaged securely.

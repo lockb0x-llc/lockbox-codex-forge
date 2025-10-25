@@ -139,6 +139,14 @@ const fileInput = document.getElementById('fileInput');
 const extractPageBtn = document.getElementById('extractPageBtn');
 const anchorType = document.getElementById('anchorType');
 const googleSignInBtn = document.getElementById('googleSignInBtn');
+let googleLogOutBtn = document.getElementById('googleLogOutBtn');
+if (!googleLogOutBtn) {
+  googleLogOutBtn = document.createElement('button');
+  googleLogOutBtn.id = 'googleLogOutBtn';
+  googleLogOutBtn.textContent = 'Log out';
+  googleLogOutBtn.style.display = 'none';
+  googleSignInBtn.parentNode.insertBefore(googleLogOutBtn, googleSignInBtn.nextSibling);
+}
 const generateBtn = document.getElementById('generateBtn');
 const entryForm = document.getElementById('entryForm');
 const jsonResult = document.getElementById('jsonResult');
@@ -159,6 +167,28 @@ chrome.storage.local.get(['googleAuthToken'], (result) => {
     googleAuthToken = result.googleAuthToken;
   }
 });
+
+function updateAuthUI() {
+  const anchorIsGoogle = anchorType && anchorType.value === 'google';
+  if (!anchorIsGoogle) {
+    googleSignInBtn.style.display = 'none';
+    googleLogOutBtn.style.display = 'none';
+    authStatus.textContent = 'Using Mock Anchor';
+    authStatus.style.color = '#616161';
+    return;
+  }
+  if (googleAuthToken) {
+    googleSignInBtn.style.display = 'none';
+    googleLogOutBtn.style.display = 'inline-block';
+    authStatus.textContent = 'Google Authenticated';
+    authStatus.style.color = '#00796b';
+  } else {
+    googleSignInBtn.style.display = 'inline-block';
+    googleLogOutBtn.style.display = 'none';
+    authStatus.textContent = 'Google Not Signed In';
+    authStatus.style.color = '#c62828';
+  }
+}
 
 
 fileInput.addEventListener('change', (e) => {
@@ -274,8 +304,52 @@ extractPageBtn && extractPageBtn.addEventListener('click', () => {
 // Show/hide Google sign-in button based on anchor type
 const authStatus = document.getElementById('authStatus');
 if (anchorType && googleSignInBtn && authStatus) {
-  authStatus.textContent = 'Google Authenticated';
-  authStatus.style.color = '#00796b';
+  anchorType.addEventListener('change', () => {
+    updateAuthUI();
+  });
+  updateAuthUI();
+}
+
+// Handle Google sign-in
+
+if (googleSignInBtn && authStatus) {
+  googleSignInBtn.addEventListener('click', () => {
+    statusDiv.textContent = 'Signing in to Google...';
+    console.log('[popup] Google sign-in button clicked');
+    chrome.runtime.sendMessage({ type: 'GOOGLE_AUTH_REQUEST' }, (response) => {
+      console.log('[popup] Google sign-in response:', response);
+      if (response && response.ok && response.token) {
+        googleAuthToken = response.token;
+        chrome.storage.local.set({ googleAuthToken: response.token });
+        statusDiv.textContent = 'Google sign-in successful.';
+        statusDiv.style.color = '#00796b';
+        updateAuthUI();
+      } else {
+        showError('Google sign-in failed.', 'Check your Chrome login or try again.');
+        updateAuthUI();
+        console.error('[popup] Google sign-in failed:', response);
+      }
+    });
+  });
+}
+
+if (googleLogOutBtn && authStatus) {
+  googleLogOutBtn.addEventListener('click', () => {
+    statusDiv.textContent = 'Logging out from Google...';
+    console.log('[popup] Google log-out button clicked');
+    if (!googleAuthToken) {
+      updateAuthUI();
+      return;
+    }
+    chrome.identity.removeCachedAuthToken({ token: googleAuthToken }, function() {
+      chrome.storage.local.remove('googleAuthToken', () => {
+        googleAuthToken = null;
+        statusDiv.textContent = 'Logged out from Google.';
+        statusDiv.style.color = '#616161';
+        updateAuthUI();
+      });
+    });
+  });
 }
 
 

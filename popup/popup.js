@@ -355,6 +355,11 @@ if (googleLogOutBtn && authStatus) {
 
 entryForm.addEventListener('submit', (e) => {
   e.preventDefault();
+  // Block if Google Anchor is selected and not signed in
+  if (anchorType && anchorType.value === 'google' && !googleAuthToken) {
+    showError('Google sign-in required before generating Codex entry.', 'Please sign in with Google and try again.');
+    return;
+  }
   // Prepare file/bytes and determine large file
   const file = fileInput.files[0];
   const CHUNK_SIZE = 1024 * 1024; // 1MB
@@ -416,8 +421,7 @@ entryForm.addEventListener('submit', (e) => {
       handleCodexResponse(response);
     });
   }
-}
-);
+});
 
 downloadBtn.addEventListener('click', () => {
   const blob = new Blob([jsonResult.textContent], {type: 'application/json'});

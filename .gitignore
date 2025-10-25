@@ -1,0 +1,38 @@
+# Node modules
+node_modules/
+
+# Build output
+/dist/
+/build/
+
+# Test output
+coverage/
+test-output.json
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# IDE/Editor files
+.vscode/
+.idea/
+
+# Chrome extension artifacts
+*.crx
+
+# Misc
+.env
+.env.local
+.env.*.local
+
+# Ignore generated docs
+/docs/generated*
+
+# Ignore lock files (optional, if using npm ci)
+package-lock.json
+yarn.lock
+
+# Ignore Jupyter notebooks checkpoints
+.ipynb_checkpoints/

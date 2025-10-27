@@ -77,11 +77,27 @@ async function updateAuthUI() {
     authStatus.style.color = '#00796b';
     userProfileDiv.textContent = 'Loading profile...';
     userProfileDiv.style.display = 'block';
-    const profile = await fetchGoogleProfile(googleAuthToken);
-    if (profile) {
-      userProfileDiv.innerHTML = `<img src="${profile.photo}" alt="avatar" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;"> <span style="font-weight:bold;">${profile.name}</span> <span style="color:#616161;">(${profile.email})</span>`;
+    let profile = await fetchGoogleProfile(googleAuthToken);
+    // If profile fetch fails, try to refresh token and fetch again
+    if (!profile) {
+      chrome.identity.getAuthToken({ interactive: true }, async function(newToken) {
+        if (chrome.runtime.lastError || !newToken) {
+          userProfileDiv.textContent = 'Google profile unavailable. Please sign in again.';
+          statusDiv.textContent = 'Google profile unavailable. Try signing in again.';
+          return;
+        }
+        googleAuthToken = newToken;
+        chrome.storage.local.set({ googleAuthToken: newToken });
+        profile = await fetchGoogleProfile(newToken);
+        if (profile) {
+          userProfileDiv.innerHTML = `<img src="${profile.photo}" alt="avatar" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;"> <span style="font-weight:bold;">${profile.name}</span> <span style="color:#616161;">(${profile.email})</span>`;
+        } else {
+          userProfileDiv.textContent = 'Google profile unavailable. Please check your account permissions.';
+          statusDiv.textContent = 'Google profile unavailable. Check permissions.';
+        }
+      });
     } else {
-      userProfileDiv.textContent = 'Google profile unavailable.';
+      userProfileDiv.innerHTML = `<img src="${profile.photo}" alt="avatar" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;"> <span style="font-weight:bold;">${profile.name}</span> <span style="color:#616161;">(${profile.email})</span>`;
     }
   } else {
     googleSignInBtn.style.display = 'inline-block';
@@ -202,12 +218,7 @@ extractPageBtn && extractPageBtn.addEventListener('click', () => {
 
 
 
-// Show/hide Google sign-in button based on anchor type
 const authStatus = document.getElementById('authStatus');
-if (anchorType && googleSignInBtn && authStatus) {
-  authStatus.textContent = 'Google Authenticated';
-  authStatus.style.color = '#00796b';
-}
 
 anchorType.addEventListener('change', updateAuthUI);
 googleSignInBtn.addEventListener('click', () => {
@@ -467,15 +478,5 @@ function initializeAuthUI() {
   updateAuthUI();
 }
 
-if (!googleAuthToken) {
-  chrome.identity.getAuthToken({ interactive: false }, async function(token) {
-    if (token) {
-      googleAuthToken = token;
-    }
-    initializeAuthUI();
-  });
-} else {
-  initializeAuthUI();
-}
-
-// Example: Call refreshGoogleAuth() when you need to refresh the token
+// Remove automatic token request on load
+initializeAuthUI();

@@ -17,15 +17,15 @@
     "128": "icons/icon128.png"
   },
   "permissions": [
-     "storage",
-     "activeTab",
-     "scripting",
-     "contextMenus",
-     "identity",
-     "downloads"
+   "storage",
+   "activeTab",
+   "scripting",
+   "contextMenus",
+   "identity",
+   "downloads"
   ],
   "host_permissions": [
-    "<all_urls>"
+      "<all_urls>"
   ],
   "web_accessible_resources": [
     {
@@ -34,10 +34,11 @@
     }
   ],
   "oauth2": {
-    "client_id": "873765379611-13o84t331fnnpotv8hnqi8i8btesh3d1.apps.googleusercontent.com",
+    "client_id": "873765379611-0h2m3ov2qbav3edb3a5630tg5bipbrub.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/userinfo.email"
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
     ]
   }
 }

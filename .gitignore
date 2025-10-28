@@ -36,3 +36,11 @@ yarn.lock
 
 # Ignore Jupyter notebooks checkpoints
 .ipynb_checkpoints/
+
+node_modules/
+.env
+manifest.json
+.DS_Store
+npm-debug.log
+/dist
+/.vscode

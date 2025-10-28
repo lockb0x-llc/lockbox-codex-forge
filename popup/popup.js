@@ -9,6 +9,14 @@ const fileInput = document.getElementById('fileInput');
 const extractPageBtn = document.getElementById('extractPageBtn');
 const anchorType = document.getElementById('anchorType');
 const googleSignInBtn = document.getElementById('googleSignInBtn');
+let googleLogOutBtn = document.getElementById('googleLogOutBtn');
+if (!googleLogOutBtn) {
+  googleLogOutBtn = document.createElement('button');
+  googleLogOutBtn.id = 'googleLogOutBtn';
+  googleLogOutBtn.textContent = 'Log out';
+  googleLogOutBtn.style.display = 'none';
+  googleSignInBtn.parentNode.insertBefore(googleLogOutBtn, googleSignInBtn.nextSibling);
+}
 const generateBtn = document.getElementById('generateBtn');
 const entryForm = document.getElementById('entryForm');
 const jsonResult = document.getElementById('jsonResult');
@@ -30,6 +38,75 @@ chrome.storage.local.get(['googleAuthToken'], (result) => {
   }
 });
 
+const userProfileDiv = document.createElement('div');
+userProfileDiv.id = 'userProfile';
+userProfileDiv.style.display = 'none';
+userProfileDiv.style.marginTop = '8px';
+statusDiv.parentNode.insertBefore(userProfileDiv, statusDiv);
+
+function fetchGoogleProfile(token) {
+  return fetch('https://people.googleapis.com/v1/people/me?personFields=names,emailAddresses,photos', {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then(res => res.json())
+    .then(profile => {
+      if (!profile || !profile.names || !profile.emailAddresses) return null;
+      return {
+        name: profile.names[0].displayName,
+        email: profile.emailAddresses[0].value,
+        photo: profile.photos && profile.photos[0] ? profile.photos[0].url : null
+      };
+    })
+    .catch(() => null);
+}
+
+async function updateAuthUI() {
+  const anchorIsGoogle = anchorType && anchorType.value === 'google';
+  if (!anchorIsGoogle) {
+    googleSignInBtn.style.display = 'none';
+    googleLogOutBtn.style.display = 'none';
+    userProfileDiv.style.display = 'none';
+    authStatus.textContent = 'Using Mock Anchor';
+    authStatus.style.color = '#616161';
+    return;
+  }
+  if (googleAuthToken) {
+    googleSignInBtn.style.display = 'none';
+    googleLogOutBtn.style.display = 'inline-block';
+    authStatus.textContent = 'Google Authenticated';
+    authStatus.style.color = '#00796b';
+    userProfileDiv.textContent = 'Loading profile...';
+    userProfileDiv.style.display = 'block';
+    let profile = await fetchGoogleProfile(googleAuthToken);
+    // If profile fetch fails, try to refresh token and fetch again
+    if (!profile) {
+      chrome.identity.getAuthToken({ interactive: true }, async function(newToken) {
+        if (chrome.runtime.lastError || !newToken) {
+          userProfileDiv.textContent = 'Google profile unavailable. Please sign in again.';
+          statusDiv.textContent = 'Google profile unavailable. Try signing in again.';
+          return;
+        }
+        googleAuthToken = newToken;
+        chrome.storage.local.set({ googleAuthToken: newToken });
+        profile = await fetchGoogleProfile(newToken);
+        if (profile) {
+          userProfileDiv.innerHTML = `<img src="${profile.photo}" alt="avatar" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;"> <span style="font-weight:bold;">${profile.name}</span> <span style="color:#616161;">(${profile.email})</span>`;
+        } else {
+          userProfileDiv.textContent = 'Google profile unavailable. Please check your account permissions.';
+          statusDiv.textContent = 'Google profile unavailable. Check permissions.';
+        }
+      });
+    } else {
+      userProfileDiv.innerHTML = `<img src="${profile.photo}" alt="avatar" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;"> <span style="font-weight:bold;">${profile.name}</span> <span style="color:#616161;">(${profile.email})</span>`;
+    }
+  } else {
+    googleSignInBtn.style.display = 'inline-block';
+    googleLogOutBtn.style.display = 'none';
+    userProfileDiv.style.display = 'none';
+    authStatus.textContent = 'Google Not Signed In';
+    authStatus.style.color = '#c62828';
+  }
+}
 
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -75,15 +152,61 @@ extractPageBtn && extractPageBtn.addEventListener('click', () => {
       console.warn('[popup] Attempted to extract from chrome:// URL:', tab.url);
       return;
     }
+    // Get page text and meta description
     chrome.scripting.executeScript({
       target: {tabId: tab.id},
-      func: () => document.body.innerText
-    }, (results) => {
+      func: () => {
+        const text = document.body.innerText;
+        let metaDesc = '';
+        const meta = document.querySelector('meta[name="description"]');
+        if (meta && meta.content) metaDesc = meta.content;
+        return { text, metaDesc };
+      }
+    }, async (results) => {
       console.log('[popup] Scripting results:', results);
       if (results && results[0] && results[0].result) {
-        extractedData = results[0].result;
+        extractedData = results[0].result.text;
         extractedBytes = new TextEncoder().encode(extractedData);
-        statusDiv.textContent = 'Page content extracted.';
+        let summary = '';
+        let screenshotUrl = '';
+        // Try Summarizer API
+        try {
+          summary = await summarizeText(extractedData);
+        } catch (err) {
+          // Fallback: use meta description or first 100 chars
+          if (results[0].result.metaDesc) {
+            summary = results[0].result.metaDesc;
+          } else {
+            summary = extractedData.slice(0, 100);
+          }
+          // Try to capture screenshot
+          try {
+            screenshotUrl = await new Promise((resolve, reject) => {
+              chrome.tabs.captureVisibleTab(tab.windowId, {format: 'png'}, (dataUrl) => {
+                if (chrome.runtime.lastError || !dataUrl) reject(chrome.runtime.lastError);
+                else resolve(dataUrl);
+              });
+            });
+          } catch (e) {
+            screenshotUrl = '';
+          }
+        }
+        aiSummary.textContent = summary;
+        aiSummary.style.display = 'block';
+        if (screenshotUrl) {
+          // Show screenshot below summary
+          let img = document.getElementById('pageScreenshot');
+          if (!img) {
+            img = document.createElement('img');
+            img.id = 'pageScreenshot';
+            img.style.maxWidth = '100%';
+            img.style.marginTop = '8px';
+            aiSummary.parentNode.insertBefore(img, aiSummary.nextSibling);
+          }
+          img.src = screenshotUrl;
+          img.style.display = 'block';
+        }
+        statusDiv.textContent = screenshotUrl ? 'Page content extracted (fallback: screenshot and summary).' : 'Page content extracted and summarized.';
         statusDiv.style.color = '#00796b';
       } else {
         showError('Failed to extract page content.', 'Reload the page or check permissions.');
@@ -95,51 +218,77 @@ extractPageBtn && extractPageBtn.addEventListener('click', () => {
 
 
 
-// Show/hide Google sign-in button based on anchor type
 const authStatus = document.getElementById('authStatus');
-if (anchorType && googleSignInBtn && authStatus) {
-  authStatus.textContent = 'Google Authenticated';
-  authStatus.style.color = '#00796b';
-}
+
+anchorType.addEventListener('change', updateAuthUI);
+googleSignInBtn.addEventListener('click', () => {
+  statusDiv.textContent = 'Signing in with Google...';
+  chrome.identity.getAuthToken({ interactive: true }, async function(token) {
+    if (chrome.runtime.lastError || !token) {
+      let errorMsg = 'Google sign-in failed.';
+      if (chrome.runtime.lastError && chrome.runtime.lastError.message) {
+        errorMsg += `\nDetails: ${chrome.runtime.lastError.message}`;
+        if (chrome.runtime.lastError.message.includes('OAuth2 not granted') || chrome.runtime.lastError.message.includes('revoked')) {
+          errorMsg += '\nRecovery: Try signing in again or check your Google account permissions.';
+        }
+      }
+      showError(statusDiv, errorMsg);
+      authStatus.textContent = 'Google Not Signed In';
+      authStatus.style.color = '#c62828';
+      userProfileDiv.style.display = 'none';
+      return;
+    }
+    googleAuthToken = token;
+    chrome.storage.local.set({ googleAuthToken: token });
+    await updateAuthUI();
+    statusDiv.textContent = 'Google sign-in successful.';
+  });
+});
+
+googleLogOutBtn.addEventListener('click', () => {
+  statusDiv.textContent = 'Logging out from Google...';
+  if (!googleAuthToken) {
+    updateAuthUI();
+    return;
+  }
+  chrome.identity.removeCachedAuthToken({ token: googleAuthToken }, function() {
+    chrome.storage.local.remove('googleAuthToken', async () => {
+      googleAuthToken = null;
+      statusDiv.textContent = 'Logged out from Google.';
+      await updateAuthUI();
+    });
+  });
+});
 
 
 entryForm.addEventListener('submit', (e) => {
   e.preventDefault();
-  console.log('[popup] Generate Codex Entry button clicked');
-  const file = fileInput.files[0];
-  if (!extractedBytes && !file) {
-    showError('No data to process.', 'Upload a file or extract page content first.');
-    console.warn('[popup] No data to process');
+  // Block if Google Anchor is selected and not signed in
+  if (anchorType && anchorType.value === 'google' && !googleAuthToken) {
+    showError('Google sign-in required before generating Codex entry.', 'Please sign in with Google and try again.');
     return;
   }
-  metadata = {
-    anchorType: anchorType ? anchorType.value : 'mock',
-    googleAuthToken: googleAuthToken
-    // Add more metadata fields as needed
-  };
-  statusDiv.textContent = 'Generating Codex Entry...';
-  statusDiv.style.color = '#00796b';
-  aiSummary.textContent = '';
-  certificateSummary.textContent = '';
-
-  // --- Large file support ---
+  // Prepare file/bytes and determine large file
+  const file = fileInput.files[0];
   const CHUNK_SIZE = 1024 * 1024; // 1MB
   const LARGE_FILE_THRESHOLD = 3 * 1024 * 1024; // 3MB
-  const bytes = extractedBytes ? extractedBytes : new Uint8Array();
+  const bytes = extractedBytes ? extractedBytes : (file ? new Uint8Array() : null);
+  const filename = file
+    ? file.name
+    : (() => {
+        let pageTitle = '';
+        try {
+          pageTitle = document.title.replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, 40);
+        } catch (e) {
+          pageTitle = 'untitled';
+        }
+        const now = new Date();
+        const y = String(now.getFullYear()).slice(-2);
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return `ce-current--${pageTitle}-${y}${m}${d}.txt`;
+      })();
   const isLargeFile = bytes && bytes.length > LARGE_FILE_THRESHOLD;
-  const filename = file ? file.name : (() => {
-    let pageTitle = '';
-    try {
-      pageTitle = document.title.replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, 40);
-    } catch (e) {
-      pageTitle = 'untitled';
-    }
-    const now = new Date();
-    const y = String(now.getFullYear()).slice(-2);
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return `ce-current--${pageTitle}-${y}${m}${d}.txt`;
-  })();
 
   function handleCodexResponse(response) {
   // Robust error handling: always update UI for both success and error cases
@@ -325,10 +474,9 @@ const refreshGoogleAuth = () => {
 };
 
 // On extension load or popup open
-if (!googleAuthToken) {
-  chrome.identity.getAuthToken({ interactive: false }, function(token) {
-    if (token) googleAuthToken = token;
-  });
+function initializeAuthUI() {
+  updateAuthUI();
 }
 
-// Example: Call refreshGoogleAuth() when you need to refresh the token
+// Remove automatic token request on load
+initializeAuthUI();

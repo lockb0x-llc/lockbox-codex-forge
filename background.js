@@ -164,7 +164,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           filename: msg.filename,
           anchorType: msg.anchorType,
           googleAuthToken: msg.googleAuthToken,
-          totalChunks: msg.totalChunks
+          totalChunks: msg.totalChunks,
+          createdBy: msg.createdBy // Preserve creator attribution for chunked uploads
         };
         chunks = [];
         port.postMessage({ status: 'started' });

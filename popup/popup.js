@@ -409,6 +409,9 @@ entryForm.addEventListener('submit', async (e) => {
     showError('Google sign-in required before generating Codex entry.', 'Please sign in with Google and try again.');
     return;
   }
+    // Disable button and show spinner cursor
+    generateBtn.disabled = true;
+    document.body.style.cursor = 'wait';
   // Prepare file/bytes and determine large file
   const file = fileInput.files[0];
   const CHUNK_SIZE = 1024 * 1024; // 1MB
@@ -478,6 +481,9 @@ entryForm.addEventListener('submit', async (e) => {
       port.postMessage({ type: 'END_LARGE_FILE_UPLOAD' });
       port.onMessage.addListener(function(msg) {
         handleCodexResponse(msg);
+          // Re-enable button and restore cursor
+          generateBtn.disabled = false;
+          document.body.style.cursor = '';
       });
     });
   } else {
@@ -496,6 +502,9 @@ entryForm.addEventListener('submit', async (e) => {
         console.warn('[popup] CREATE_CODEX_FROM_FILE lastError:', chrome.runtime.lastError.message);
       }
       handleCodexResponse(response);
+        // Re-enable button and restore cursor
+        generateBtn.disabled = false;
+        document.body.style.cursor = '';
     });
   }
 });

@@ -5,10 +5,14 @@
   "main": "background.js",
   "type": "module",
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "build-manifest": "node build-manifest.js"
   },
   "devDependencies": {
     "jsdom": "^27.0.1",
     "vitest": "^4.0.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
   }
 }

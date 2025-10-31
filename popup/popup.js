@@ -168,11 +168,34 @@ chrome.storage.local.get(['googleAuthToken'], (result) => {
   }
 });
 
-function updateAuthUI() {
+const userProfileDiv = document.createElement('div');
+userProfileDiv.id = 'userProfile';
+userProfileDiv.style.display = 'none';
+userProfileDiv.style.marginTop = '8px';
+statusDiv.parentNode.insertBefore(userProfileDiv, statusDiv);
+
+function fetchGoogleProfile(token) {
+  return fetch('https://people.googleapis.com/v1/people/me?personFields=names,emailAddresses,photos', {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then(res => res.json())
+    .then(profile => {
+      if (!profile || !profile.names || !profile.emailAddresses) return null;
+      return {
+        name: profile.names[0].displayName,
+        email: profile.emailAddresses[0].value,
+        photo: profile.photos && profile.photos[0] ? profile.photos[0].url : null
+      };
+    })
+    .catch(() => null);
+}
+
+async function updateAuthUI() {
   const anchorIsGoogle = anchorType && anchorType.value === 'google';
   if (!anchorIsGoogle) {
     googleSignInBtn.style.display = 'none';
     googleLogOutBtn.style.display = 'none';
+    userProfileDiv.style.display = 'none';
     authStatus.textContent = 'Using Mock Anchor';
     authStatus.style.color = '#616161';
     return;
@@ -182,14 +205,38 @@ function updateAuthUI() {
     googleLogOutBtn.style.display = 'inline-block';
     authStatus.textContent = 'Google Authenticated';
     authStatus.style.color = '#00796b';
+    userProfileDiv.textContent = 'Loading profile...';
+    userProfileDiv.style.display = 'block';
+    let profile = await fetchGoogleProfile(googleAuthToken);
+    // If profile fetch fails, try to refresh token and fetch again
+    if (!profile) {
+      chrome.identity.getAuthToken({ interactive: true }, async function(newToken) {
+        if (chrome.runtime.lastError || !newToken) {
+          userProfileDiv.textContent = 'Google profile unavailable. Please sign in again.';
+          statusDiv.textContent = 'Google profile unavailable. Try signing in again.';
+          return;
+        }
+        googleAuthToken = newToken;
+        chrome.storage.local.set({ googleAuthToken: newToken });
+        profile = await fetchGoogleProfile(newToken);
+        if (profile) {
+          userProfileDiv.innerHTML = `<img src="${profile.photo}" alt="avatar" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;"> <span style="font-weight:bold;">${profile.name}</span> <span style="color:#616161;">(${profile.email})</span>`;
+        } else {
+          userProfileDiv.textContent = 'Google profile unavailable. Please check your account permissions.';
+          statusDiv.textContent = 'Google profile unavailable. Check permissions.';
+        }
+      });
+    } else {
+      userProfileDiv.innerHTML = `<img src="${profile.photo}" alt="avatar" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;"> <span style="font-weight:bold;">${profile.name}</span> <span style="color:#616161;">(${profile.email})</span>`;
+    }
   } else {
     googleSignInBtn.style.display = 'inline-block';
     googleLogOutBtn.style.display = 'none';
+    userProfileDiv.style.display = 'none';
     authStatus.textContent = 'Google Not Signed In';
     authStatus.style.color = '#c62828';
   }
 }
-
 
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -301,7 +348,6 @@ extractPageBtn && extractPageBtn.addEventListener('click', () => {
 
 
 
-// Show/hide Google sign-in button based on anchor type
 const authStatus = document.getElementById('authStatus');
 if (anchorType && googleSignInBtn && authStatus) {
   anchorType.addEventListener('change', () => {
@@ -336,24 +382,20 @@ if (googleSignInBtn && authStatus) {
   });
 }
 
-if (googleLogOutBtn && authStatus) {
-  googleLogOutBtn.addEventListener('click', () => {
-    statusDiv.textContent = 'Logging out from Google...';
-    console.log('[popup] Google log-out button clicked');
-    if (!googleAuthToken) {
-      updateAuthUI();
-      return;
-    }
-    chrome.identity.removeCachedAuthToken({ token: googleAuthToken }, function() {
-      chrome.storage.local.remove('googleAuthToken', () => {
-        googleAuthToken = null;
-        statusDiv.textContent = 'Logged out from Google.';
-        statusDiv.style.color = '#616161';
-        updateAuthUI();
-      });
+googleLogOutBtn.addEventListener('click', () => {
+  statusDiv.textContent = 'Logging out from Google...';
+  if (!googleAuthToken) {
+    updateAuthUI();
+    return;
+  }
+  chrome.identity.removeCachedAuthToken({ token: googleAuthToken }, function() {
+    chrome.storage.local.remove('googleAuthToken', async () => {
+      googleAuthToken = null;
+      statusDiv.textContent = 'Logged out from Google.';
+      await updateAuthUI();
     });
   });
-}
+});
 
 
 entryForm.addEventListener('submit', async (e) => {
@@ -394,13 +436,44 @@ entryForm.addEventListener('submit', async (e) => {
     });
   }
   const isLargeFile = bytes && bytes.length > LARGE_FILE_THRESHOLD;
-  if (isLargeFile) {
-    // Wake up service worker before Port connection
-    chrome.runtime.sendMessage({ type: 'PING' }, function(response) {
-        if (chrome.runtime.lastError) {
-          // Silently log for diagnostics; no user impact if upload proceeds
-          console.warn('[popup] PING lastError (safe to ignore if upload succeeds):', chrome.runtime.lastError.message);
-          // Do not update UI or interrupt workflow
+
+  function handleCodexResponse(response) {
+  // Robust error handling: always update UI for both success and error cases
+  // - If response.ok and response.entry, update UI with entry details
+  // - If error or schema validation fails, show error details and recovery instructions
+    console.log('[popup] Codex entry response:', response);
+    if (response && response.ok && response.entry) {
+      // If Google Drive payload, validate existence before export
+      let payloadExists = true;
+      let payloadValidationMsg = '';
+      const domRefs = { statusDiv, jsonResult, downloadBtn, copyBtn, aiSummary, certificateSummary };
+      if (response.entry.storage && response.entry.storage.protocol === 'gdrive' && response.payloadDriveInfo && response.payloadDriveInfo.id && googleAuthToken) {
+        (async () => {
+          try {
+            const validatePayload = await new Promise((resolve) => {
+              chrome.runtime.sendMessage({
+                type: 'VALIDATE_PAYLOAD_EXISTENCE',
+                payload: {
+                  fileId: response.payloadDriveInfo.id,
+                  token: googleAuthToken
+                }
+              }, resolve);
+            });
+            if (validatePayload && validatePayload.ok && validatePayload.exists) {
+              payloadExists = true;
+              payloadValidationMsg = 'Payload exists on Google Drive.';
+            } else {
+              payloadExists = false;
+              payloadValidationMsg = 'Payload NOT found on Google Drive.';
+            }
+          } catch (err) {
+            payloadExists = false;
+            payloadValidationMsg = 'Error validating payload existence.';
+          }
+          updateCodexUI(domRefs, response, payloadExists, payloadValidationMsg);
+        })();
+      } else {
+        updateCodexUI(domRefs, response, payloadExists, payloadValidationMsg);
       }
       // Use Port-based chunked transfer
       const port = chrome.runtime.connect();
@@ -491,10 +564,9 @@ const refreshGoogleAuth = () => {
 };
 
 // On extension load or popup open
-if (!googleAuthToken) {
-  chrome.identity.getAuthToken({ interactive: false }, function(token) {
-    if (token) googleAuthToken = token;
-  });
+function initializeAuthUI() {
+  updateAuthUI();
 }
 
-// Example: Call refreshGoogleAuth() when you need to refresh the token
+// Remove automatic token request on load
+initializeAuthUI();

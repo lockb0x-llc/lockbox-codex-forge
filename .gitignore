@@ -24,5 +24,17 @@ yarn-error.log*
 # Ignore lockb0x protocol test output
 /docs/test-output/
 
-# Ignore VSCode settings
-.vscode/
+# Ignore lock files (optional, if using npm ci)
+package-lock.json
+yarn.lock
+
+# Ignore Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+node_modules/
+.env
+manifest.json
+.DS_Store
+npm-debug.log
+/dist
+/.vscode

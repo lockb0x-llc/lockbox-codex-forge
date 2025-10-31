@@ -3,36 +3,26 @@ node_modules/
 
 # Build output
 /dist/
-/build/
-
-# Test output
-coverage/
-test-output.json
-
-# Logs
-*.log
-
-# OS files
-.DS_Store
-
-# IDE/Editor files
-.vscode/
-.idea/
 
 # Chrome extension artifacts
 *.crx
+*.pem
+
+# OS and editor files
+.DS_Store
+*.swp
+*.swo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Misc
 .env
-.env.local
-.env.*.local
 
-# Ignore generated docs
-/docs/generated*
+# Ignore lockb0x protocol test output
+/docs/test-output/
 
-# Ignore lock files (optional, if using npm ci)
-package-lock.json
-yarn.lock
-
-# Ignore Jupyter notebooks checkpoints
-.ipynb_checkpoints/
+# Ignore VSCode settings
+.vscode/

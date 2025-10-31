@@ -1,5 +1,4 @@
 // eslint.config.cjs for ESLint v9+ (CommonJS)
-const jsonPlugin = require('eslint-plugin-json');
 
 module.exports = [
   {

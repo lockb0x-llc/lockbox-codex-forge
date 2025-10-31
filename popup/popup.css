@@ -1,3 +1,55 @@
+/* Step fieldset spacing */
+.step-fieldset {
+  margin-bottom: 16px;
+}
+.step-fieldset.no-border {
+  border: none;
+}
+
+/* Separator for 'or' */
+.or-separator {
+  margin: 0 8px;
+}
+
+/* Google sign-in button */
+.google-signin-btn {
+  margin-left: 8px;
+  display: none;
+}
+
+/* Auth status styling */
+.auth-status {
+  margin-left: 10px;
+  color: #00796b;
+  font-weight: bold;
+}
+
+/* Action buttons (download/copy) */
+.action-btn {
+  margin-left: 8px;
+  display: none;
+}
+
+/* Payload download link */
+.payload-link {
+  display: none;
+  margin-left: 10px;
+}
+
+/* Status message */
+.status-message {
+  margin-top: 8px;
+}
+
+/* Stepper spacing */
+.status-stepper {
+  margin-bottom: 16px;
+}
+
+/* Loading message */
+.loading-message {
+  display: none;
+}
 /* Status Stepper Styles */
 .status-stepper {
   margin: 16px 0;

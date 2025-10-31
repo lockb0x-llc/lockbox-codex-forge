@@ -11,39 +11,39 @@
   <h1>Lockb0x Codex Forge</h1>
   <form id="entryForm">
     <!-- Step 1: Choose file or extract page -->
-    <fieldset style="margin-bottom:16px;">
+  <fieldset class="step-fieldset">
       <legend>Step 1: Select Content</legend>
       <label for="fileInput">Upload File:</label>
       <input type="file" id="fileInput" accept=".txt,.json,.md,.pdf,.png,.jpg,.jpeg,.docx,.xlsx,.pptx,.mp4,.mp3,.zip,.rar,.tar,.gz,.html,.csv,.epub">
-      <span style="margin:0 8px;">or</span>
+  <span class="or-separator">or</span>
       <button type="button" id="extractPageBtn">Extract Page Content</button>
     </fieldset>
 
     <!-- Step 2: Choose anchor type -->
-    <fieldset style="margin-bottom:16px;">
+  <fieldset class="step-fieldset">
       <legend>Step 2: Select Anchor Type</legend>
       <label for="anchorType">Anchor Type:</label>
       <select id="anchorType">
         <option value="mock">Mock Anchor</option>
         <option value="google">Google Anchor</option>
       </select>
-      <button id="googleSignInBtn" style="display:none; margin-left:8px;">Sign in with Google</button>
-      <span id="authStatus" style="margin-left:10px; color: #00796b; font-weight: bold;"></span>
+  <button id="googleSignInBtn" type="button" class="google-signin-btn">Sign in with Google</button>
+  <span id="authStatus" class="auth-status"></span>
     </fieldset>
 
     <!-- Step 3: Generate Codex Entry -->
-    <fieldset style="margin-bottom:16px; border:none;">
+  <fieldset class="step-fieldset no-border">
       <legend>Step 3: Generate Entry</legend>
       <button type="submit" id="generateBtn">Generate Codex Entry</button>
-      <button id="downloadBtn" type="button" style="margin-left:8px; display:none;">Download Entry</button>
-      <button id="copyBtn" type="button" style="margin-left:8px; display:none;">Copy to Clipboard</button>
-      <a id="payloadDownloadLink" href="#" target="_blank" style="display:none; margin-left:10px;">Download Payload from Drive</a>
-      <div id="status" aria-live="polite" style="margin-top:8px;"></div>
+  <button id="downloadBtn" type="button" class="action-btn">Download Entry</button>
+  <button id="copyBtn" type="button" class="action-btn">Copy to Clipboard</button>
+  <a id="payloadDownloadLink" href="#" target="_blank" class="payload-link">Download Payload from Drive</a>
+  <div id="status" aria-live="polite" class="status-message"></div>
     </fieldset>
   </form>
 
   <!-- Stepper UI -->
-  <div id="statusStepper" class="status-stepper" style="margin-bottom:16px;">
+  <div id="statusStepper" class="status-stepper">
     <div class="step" id="step-upload">1. Upload <span class="step-status"></span></div>
     <div class="step" id="step-hash">2. Hash <span class="step-status"></span></div>
     <div class="step" id="step-anchor">3. Anchor <span class="step-status"></span></div>
@@ -62,7 +62,7 @@
     <div id="certificateSummary"></div>
   </div>
 
-  <div id="loading" style="display:none;">Generating entry…</div>
+  <div id="loading" class="loading-message">Generating entry…</div>
 <script type="module" src="popup.js"></script>
 </body>
 </html>

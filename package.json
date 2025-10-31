@@ -7,7 +7,6 @@
   "scripts": {
     "test": "vitest",
     "lint": "eslint . --ext .js"
-  }
   },
   "devDependencies": {
     "jsdom": "^27.0.1",

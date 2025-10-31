@@ -1,5 +1,4 @@
 // Basic popup logic tests (UI logic only, not full browser integration)
-import { describe, test, expect } from "vitest";
 describe("popup.js UI logic", () => {
   test("file input change sets extractedBytes for text", () => {
     const file = new Blob(["test content"], { type: "text/plain" });

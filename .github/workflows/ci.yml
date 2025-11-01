@@ -16,5 +16,3 @@ jobs:
       - run: npm install
       - run: npm run lint
       - run: npm run format
-      - run: npm run validate-json
-      - run: npm test

@@ -1,133 +1,144 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://lockb0x.io/schemas/codex-entry-v0.0.2.json",
-    "title": "Lockb0x Codex Entry v0.0.2",
-    "type": "object",
-    "required": ["id", "version", "storage", "identity", "anchor"],
-    "additionalProperties": false,
-  
-    "properties": {
-      "id": {
-        "type": "string",
-        "description": "Unique identifier (UUIDv4, RFC 9562).",
-        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
-      },
-  
-      "version": {
-        "type": "string",
-        "enum": ["0.0.2"],
-        "description": "Lockb0x protocol version."
-      },
-  
-      "storage": {
-        "type": "object",
-        "required": ["protocol", "location", "integrity_proof"],
-        "properties": {
-          "protocol": {
-            "type": "string",
-            "enum": ["ipfs", "s3", "azureblob", "gcs", "ftp", "local"],
-            "description": "Storage backend protocol."
-          },
-          "location": {
-            "type": "string",
-            "description": "Address, CID, or URI for stored content."
-          },
-          "jurisdiction": {
-            "type": "string",
-            "description": "Optional jurisdiction identifier for legal provenance."
-          },
-          "integrity_proof": {
-            "type": "string",
-            "pattern": "^ni:///sha-256;[A-Za-z0-9_-]{43,}$",
-            "description": "RFC6920 ni-URI containing a base64url-encoded SHA-256 hash."
-          },
-          "encryption": {
-            "type": "object",
-            "description": "Optional encryption metadata.",
-            "properties": {
-              "alg": { "type": "string" },
-              "key_id": { "type": "string" },
-              "nonce": { "type": "string" }
-            },
-            "required": ["alg"]
-          }
-        }
-      },
-  
-      "identity": {
-        "type": "object",
-        "required": ["org", "process", "artifact"],
-        "properties": {
-          "org": {
-            "type": "string",
-            "description": "Originating organization or legal entity."
-          },
-          "process": {
-            "type": "string",
-            "description": "System or process that created this entry."
-          },
-          "artifact": {
-            "type": "string",
-            "description": "The file, object, or dataset represented."
-          },
-          "subject": {
-            "type": "string",
-            "description": "AI- or user-generated description of content."
-          }
-        }
-      },
-  
-      "anchor": {
-        "type": "object",
-        "required": ["chain", "tx", "hash_alg"],
-        "properties": {
-          "chain": {
-            "type": "string",
-            "pattern": "^[a-z0-9]+:[a-zA-Z0-9_-]+$",
-            "description": "CAIP-2 blockchain identifier (e.g., eip155:1, stellar:pubnet)."
-          },
-          "tx": {
-            "type": "string",
-            "description": "Transaction or record hash on-chain."
-          },
-          "hash_alg": {
-            "type": "string",
-            "enum": ["sha-256", "sha3-256", "blake3"],
-            "description": "Hash algorithm used for integrity proof anchoring."
-          },
-          "token_id": {
-            "type": "string",
-            "description": "Optional NFT or asset ID tied to anchor record."
-          }
-        }
-      },
-  
-      "signatures": {
-        "type": "array",
-        "description": "One or more digital signatures verifying this entry.",
-        "items": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lockb0x.io/schemas/codex-entry-v0.0.2.json",
+  "title": "Lockb0x Codex Entry v0.0.2",
+  "type": "object",
+  "required": ["id", "version", "storage", "identity", "anchor"],
+  "additionalProperties": false,
+
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier (UUIDv4, RFC 9562).",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    },
+
+    "version": {
+      "type": "string",
+      "enum": ["0.0.2"],
+      "description": "Lockb0x protocol version."
+    },
+
+    "storage": {
+      "type": "object",
+      "required": ["protocol", "location", "integrity_proof"],
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "enum": ["ipfs", "s3", "azureblob", "gcs", "ftp", "local"],
+          "description": "Storage backend protocol."
+        },
+        "location": {
+          "type": "string",
+          "description": "Address, CID, or URI for stored content."
+        },
+        "jurisdiction": {
+          "type": "string",
+          "description": "Optional jurisdiction identifier for legal provenance."
+        },
+        "integrity_proof": {
+          "type": "string",
+          "pattern": "^ni:///sha-256;[A-Za-z0-9_-]{43,}$",
+          "description": "RFC6920 ni-URI containing a base64url-encoded SHA-256 hash."
+        },
+        "encryption": {
           "type": "object",
-          "required": ["alg", "kid", "signature"],
+          "description": "Optional encryption metadata.",
           "properties": {
-            "alg": {
-              "type": "string",
-              "description": "Signature algorithm (e.g., ES256, Ed25519)."
-            },
-            "kid": {
-              "type": "string",
-              "description": "Key identifier or public key reference."
-            },
-            "signature": {
-              "type": "string",
-              "description": "Base64url-encoded signature over canonicalized JSON."
-            }
+            "alg": { "type": "string" },
+            "key_id": { "type": "string" },
+            "nonce": { "type": "string" }
+          },
+          "required": ["alg"]
+        }
+      }
+    },
+
+    "identity": {
+      "type": "object",
+      "required": ["org", "process", "artifact"],
+      "properties": {
+        "org": {
+          "type": "string",
+          "description": "Originating organization or legal entity."
+        },
+        "process": {
+          "type": "string",
+          "description": "System or process that created this entry."
+        },
+        "artifact": {
+          "type": "string",
+          "description": "The file, object, or dataset represented."
+        },
+        "subject": {
+          "type": "string",
+          "description": "AI- or user-generated description of content."
+        }
+      }
+    },
+
+    "anchor": {
+      "type": "object",
+      "required": ["chain", "tx", "hash_alg"],
+      "properties": {
+        "chain": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+:[a-zA-Z0-9_-]+$",
+          "description": "CAIP-2 blockchain identifier (e.g., eip155:1, stellar:pubnet)."
+        },
+        "tx": {
+          "type": "string",
+          "description": "Transaction or record hash on-chain."
+        },
+        "hash_alg": {
+          "type": "string",
+          "enum": ["sha-256", "sha3-256", "blake3"],
+          "description": "Hash algorithm used for integrity proof anchoring."
+        },
+        "token_id": {
+          "type": "string",
+          "description": "Optional NFT or asset ID tied to anchor record."
+        }
+      }
+    },
+
+    "signatures": {
+      "type": "array",
+      "description": "One or more digital signatures verifying this entry.",
+      "items": {
+        "type": "object",
+        "required": ["alg", "kid", "signature"],
+        "properties": {
+          "alg": {
+            "type": "string",
+            "description": "Signature algorithm (e.g., ES256, Ed25519)."
+          },
+          "kid": {
+            "type": "string",
+            "description": "Key identifier or public key reference."
+          },
+          "signature": {
+            "type": "string",
+            "description": "Base64url-encoded signature over canonicalized JSON."
           }
         }
-      },
-  
-      "previous_id": {
-        "type": "string",
-        "description": "ID of the prior codex entry in the chain of custody."
       }
+    },
+
+    "previous_id": {
+      "type": "string",
+      "description": "ID of the prior codex entry in the chain of custody."
+    },
+    "createdBy": {
+      "type": "object",
+      "description": "Attribution for who created the entry (Google or mock)",
+      "properties": {
+        "type": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "picture": { "type": "string" }
+      },
+      "required": ["type"]
     }
   }
+}

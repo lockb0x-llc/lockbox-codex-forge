@@ -5,12 +5,16 @@
   "main": "background.js",
   "type": "module",
   "scripts": {
-    "test": "vitest",
-    "build-manifest": "node build-manifest.js"
+    "test": "jest",
+    "lint": "eslint . --ext .js",
+    "format": "prettier --write \"**/*.{js,json,md,css,html}\""
   },
   "devDependencies": {
+    "eslint": "^9.38.0",
     "jsdom": "^27.0.1",
-    "vitest": "^4.0.3"
+    "prettier": "^3.6.2",
+    "webidl-conversions": "^8.0.0",
+    "whatwg-url": "^15.1.0"
   },
   "dependencies": {
     "dotenv": "^17.2.3"

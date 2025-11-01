@@ -1,51 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lockb0x Codex Forge</title>
-  <link rel="icon" href="../icons/icon128.png">
-  <link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <h1>Lockb0x Codex Forge</h1>
-  <form id="entryForm">
-    <label for="fileInput">Upload File:</label>
-    <input type="file" id="fileInput" accept=".txt,.json,.md,.pdf">
-    <br><br>
-    <button type="button" id="extractPageBtn">Extract Page Content</button>
-    <br><br>
-    <label for="anchorType">Anchor Type:</label>
-    <select id="anchorType">
-      <option value="mock">Mock Anchor</option>
-      <option value="google">Google Anchor</option>
-    </select>
-    <button id="googleSignInBtn" style="display:none;">Sign in with Google</button>
-    <span id="authStatus" style="margin-left:10px; color: #00796b; font-weight: bold;"></span>
-    <br><br>
-    <button type="submit" id="generateBtn">Generate Codex Entry</button>
-  </form>
-  <div id="resultArea">
-    <h2>Result</h2>
-    <div id="aiSummary"></div>
-    <pre id="jsonResult"></pre>
-    <div id="certificateSummary"></div>
-    <button id="downloadBtn">Download Entry</button>
-    <button id="copyBtn">Copy to Clipboard</button>
-    <a id="payloadDownloadLink" href="#" target="_blank" style="display:none; margin-left:10px;">Download Payload from Drive</a>
-  </div>
-  <div id="statusStepper" class="status-stepper">
-    <div class="step" id="step-upload">1. Upload <span class="step-status"></span></div>
-    <div class="step" id="step-hash">2. Hash <span class="step-status"></span></div>
-    <div class="step" id="step-anchor">3. Anchor <span class="step-status"></span></div>
-    <div class="step" id="step-codex">4. Codex Entry <span class="step-status"></span></div>
-    <div class="step" id="step-validate">5. Validate <span class="step-status"></span></div>
-    <div class="step" id="step-upload-codex">6. Upload Codex <span class="step-status"></span></div>
-    <div class="step" id="step-success">7. Success <span class="step-status"></span></div>
-  <div class="step" id="step-error">Error <span class="step-status"></span></div>
-  </div>
-  <div id="loading">Generating entry…</div>
-  <div id="status" aria-live="polite"></div>
-  <script type="module" src="popup.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lockb0x Codex Forge</title>
+    <link rel="icon" href="../icons/icon128.png" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <h1>Lockb0x Codex Forge</h1>
+    <form id="entryForm">
+      <!-- Step 1: Choose file or extract page -->
+      <fieldset class="step-fieldset">
+        <legend>Step 1: Select Content</legend>
+        <label for="fileInput">Upload File:</label>
+        <input
+          type="file"
+          id="fileInput"
+          accept=".txt,.json,.md,.pdf,.png,.jpg,.jpeg,.docx,.xlsx,.pptx,.mp4,.mp3,.zip,.rar,.tar,.gz,.html,.csv,.epub"
+        />
+        <span class="or-separator">or</span>
+        <button type="button" id="extractPageBtn">Extract Page Content</button>
+      </fieldset>
+
+      <!-- Step 2: Choose anchor type -->
+      <fieldset class="step-fieldset">
+        <legend>Step 2: Select Anchor Type</legend>
+        <label for="anchorType">Anchor Type:</label>
+        <select id="anchorType">
+          <option value="mock">Mock Anchor</option>
+          <option value="google">Google Anchor</option>
+        </select>
+        <button id="googleSignInBtn" type="button" class="google-signin-btn">
+          Sign in with Google
+        </button>
+        <span id="authStatus" class="auth-status"></span>
+      </fieldset>
+
+      <!-- Step 3: Generate Codex Entry -->
+      <fieldset class="step-fieldset no-border">
+        <legend>Step 3: Generate Entry</legend>
+        <button type="submit" id="generateBtn">Generate Codex Entry</button>
+        <button id="downloadBtn" type="button" class="action-btn">
+          Download Entry
+        </button>
+        <button id="copyBtn" type="button" class="action-btn">
+          Copy to Clipboard
+        </button>
+        <a
+          id="payloadDownloadLink"
+          href="#"
+          target="_blank"
+          class="payload-link"
+          >Download Payload from Drive</a
+        >
+        <div id="status" aria-live="polite" class="status-message"></div>
+      </fieldset>
+    </form>
+
+    <!-- Stepper UI -->
+    <div id="statusStepper" class="status-stepper">
+      <div class="step" id="step-upload">
+        1. Upload <span class="step-status"></span>
+      </div>
+      <div class="step" id="step-hash">
+        2. Hash <span class="step-status"></span>
+      </div>
+      <div class="step" id="step-anchor">
+        3. Anchor <span class="step-status"></span>
+      </div>
+      <div class="step" id="step-codex">
+        4. Codex Entry <span class="step-status"></span>
+      </div>
+      <div class="step" id="step-validate">
+        5. Validate <span class="step-status"></span>
+      </div>
+      <div class="step" id="step-upload-codex">
+        6. Upload Codex <span class="step-status"></span>
+      </div>
+      <div class="step" id="step-success">
+        7. Success <span class="step-status"></span>
+      </div>
+      <div class="step" id="step-error">
+        Error <span class="step-status"></span>
+      </div>
+    </div>
+
+    <!-- Codex entry results -->
+    <div id="resultArea">
+      <h2>Codex Entry Result</h2>
+      <div id="aiSummary"></div>
+      <pre id="jsonResult"></pre>
+      <div id="certificateSummary"></div>
+    </div>
+
+    <div id="loading" class="loading-message">Generating entry…</div>
+    <script type="module" src="popup.js"></script>
+  </body>
 </html>

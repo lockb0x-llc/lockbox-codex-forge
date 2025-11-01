@@ -13,8 +13,8 @@ import {
   uploadCodexEntryToGoogleDrive,
   checkDriveFileExists,
 } from "./lib/drive-utils.js";
-// Google OAuth token storage
-let googleAuthToken = null;
+// Google OAuth token storage (kept for potential future use in token refresh)
+let googleAuthToken = null; // eslint-disable-line no-unused-vars
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "GOOGLE_AUTH_REQUEST") {

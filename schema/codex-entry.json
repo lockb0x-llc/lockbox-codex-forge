@@ -25,7 +25,7 @@
       "properties": {
         "protocol": {
           "type": "string",
-          "enum": ["ipfs", "s3", "azureblob", "gcs", "ftp", "local"],
+          "enum": ["ipfs", "s3", "azureblob", "gcs", "ftp", "local", "gdrive"],
           "description": "Storage backend protocol."
         },
         "location": {

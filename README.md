@@ -2,25 +2,54 @@
 
 ## Overview
 
-Lockb0x Codex Forge is a Chrome Extension (Manifest V3) for creating secure, verifiable Codex Entries from web content or user-uploaded files. It leverages Chrome's built-in AI for automated metadata generation and supports both mock and Google anchor flows for robust protocol compliance.
+Lockb0x Codex Forge is a Chrome Extension (Manifest V3) for creating secure, verifiable Codex Entries from web content or user-uploaded files. It implements the lockb0x protocol with robust hashing, signing, and anchoring capabilities, supporting both mock and Google Drive anchor flows for protocol compliance.
+
+**Note on AI Features:** The extension currently uses fallback text extraction for metadata generation. Chrome Built-In AI features (e.g., `chrome.ai.summarizer`, `chrome.ai.prompt`) are referenced in the codebase but not yet implemented with the actual Chrome AI APIs, as these APIs are still experimental and not widely available.
 
 ## Features
 
-- Upload and anchor any file type (text, PDF, JSON, binary) to Google Drive or mock storage.
-- Google authentication and Drive integration for secure payload storage and validation.
-- Codex entry generation: hashes, canonicalizes, signs, anchors, and validates entries.
-- Schema validation and export polish: validation runs before export, feedback shown in popup.
-- Download and copy Codex entry as JSON from popup UI.
-- Reliable Google auth token persistence in chrome.storage.
-- UI feedback for all workflow steps, including incremental stepper and error messages.
-- Payload existence validation in Drive before export, with download link shown if validated.
+### Implemented and Validated
+- **Lockb0x Protocol Core:** Complete implementation of UUID generation, SHA-256 hashing, ni-URI encoding, JSON canonicalization (RFC 8785), and ES256 signing
+- **File Upload Support:** Upload and anchor any file type (text, PDF, JSON, binary) to Google Drive or mock storage
+- **Google Drive Integration:** Secure payload storage, authentication, and token persistence in chrome.storage
+- **Dual Anchor Support:** Both mock (local) and Google Drive anchor flows fully functional
+- **Codex Entry Generation:** Complete workflow for hashing, canonicalizing, signing, anchoring, and validating entries
+- **Schema Validation:** Validation against lockb0x schema v0.0.2 runs before export, with feedback shown in popup
+- **Export Options:** Download and copy Codex entry as JSON from popup UI
+- **Payload Validation:** Existence validation in Drive before export, with download link shown if validated
+- **UI/UX:** Incremental stepper feedback, error messages, and recovery instructions for all workflow steps
+
+### Not Yet Implemented
+- **Chrome Built-In AI Integration:** The codebase includes references to Chrome AI APIs (`chrome.ai.summarizer`, `chrome.ai.prompt`) for automated metadata generation, but these are not yet implemented. Currently, the extension uses simple text truncation fallbacks:
+  - AI summarization for content → Falls back to first 100 characters
+  - Process tag generation → Falls back to static tags ("AI-Summarized-Web-Page" or "File-Upload-Hashed")
+  - Certificate summary generation → Falls back to basic template strings
 
 ## Current Status
 
-- All core features are complete and validated.
-- Google Drive integration and payload existence validation are robust.
-- UI/UX provides incremental feedback and error handling for all workflow steps.
-- Unit testing has been removed for hackathon submission; focus is on shipping a working extension.
+### Validated and Working ✓
+- **Lockb0x Protocol Implementation:** All core protocol features (UUID, hashing, ni-URI, signing, canonicalization) are complete and validated
+- **Google Drive Integration:** Payload storage, anchor creation, and existence validation are robust and working
+- **Mock Anchor Flow:** Local/offline anchor generation is fully functional
+- **Schema Validation:** Codex entries validate against schema v0.0.2
+- **UI/UX:** Complete workflow with incremental feedback, error handling, and stepper status
+
+### Known Gaps
+- **Chrome Built-In AI:** Not implemented; currently using fallback text extraction
+  - No integration with experimental Chrome AI APIs
+  - Metadata generation uses simple text truncation instead of AI summarization
+  - Process tags and certificate summaries use static fallbacks
+- **Testing Infrastructure:** Test files exist, test script added to package.json, but vitest needs to be installed
+  - To enable testing: `npm install --save-dev vitest jsdom`
+  - Then run: `npm test`
+- **Code Quality:** All linting warnings have been fixed
+
+### Proof of Concept Status
+The extension successfully demonstrates:
+- ✓ Lockb0x protocol compliance (hashing, signing, anchoring, validation)
+- ✓ Google Drive as a storage and anchor backend
+- ✓ Codex entry creation, export, and schema validation
+- ✗ Chrome Built-In AI integration (planned but not implemented)
 
 ## Installation & Usage
 
@@ -52,20 +81,48 @@ Lockb0x Codex Forge is a Chrome Extension (Manifest V3) for creating secure, ver
 
 ## Roadmap
 
-- UI/UX polish: improve layout, accessibility, and feedback clarity.
-- Error handling: further refine messages and recovery instructions for all user actions.
-- Documentation: expand contributor guides, troubleshooting, and verification instructions.
-- Finalize for hackathon/demo/production submission.
+### Completed
+- ✓ Binary file upload support for all payloads
+- ✓ Reliable Google auth token persistence
+- ✓ Improved error handling and UI feedback
+- ✓ Consistent workflow and file references
+- ✓ Download link for payload files
+- ✓ Enhanced schema validation and export polish
+- ✓ Lockb0x protocol core implementation
+- ✓ Google Drive integration and payload validation
+
+### Planned / In Progress
+- **Chrome Built-In AI Integration:**
+  - Implement actual Chrome AI APIs (when stable/available)
+  - Replace fallback text extraction with AI-powered summarization
+  - Integrate AI-generated process tags and certificate summaries
+  - Add feature detection and graceful fallback for browsers without AI support
+- **Testing Infrastructure:**
+  - Add test runner script to package.json
+  - Expand test coverage for all modules
+  - Add integration tests for end-to-end workflows
+- **Code Quality:**
+  - Fix linting warnings (unused variables)
+  - Improve error handling consistency
+  - Add JSDoc comments for better code documentation
+- **UI/UX Polish:**
+  - Further refine layout, accessibility, and feedback clarity
+  - Improve stepper visuals and status indicators
+  - Add tooltips and help text for complex features
+- **Documentation:**
+  - Expand contributor guides with setup instructions
+  - Create video tutorials and demos
+  - Add API documentation for developers
 
 ## Team Roles
 
-- Project Lead: Oversees development, documentation, roadmap, and hackathon strategy.
-- AI Integration: Implements and tests Chrome AI APIs, metadata generation, and fallback logic.
-- Protocol Engineer: Develops and tests protocol logic, anchor flows, and schema validation.
-- UI/UX Designer: Designs popup UI, stepper, and user flows; improves accessibility and error feedback.
-- Google Cloud Integration: Handles Google anchor API, Drive integration, authentication, and token persistence.
-- QA & Testing: Conducts user testing, feedback collection, and expands unit/integration tests for all flows.
-- Documentation: Updates README, contributor guides, troubleshooting, and verification instructions.
+- **Project Lead:** Oversees development, documentation, roadmap, and hackathon strategy.
+- **AI Integration (PENDING):** Will implement and test Chrome Built-In AI APIs when available, including metadata generation and fallback logic.
+- **Protocol Engineer:** Develops and tests protocol logic, anchor flows, and schema validation.
+- **UI/UX Designer:** Designs popup UI, stepper, and user flows; improves accessibility and error feedback.
+- **Google Cloud Integration:** Handles Google anchor API, Drive integration, authentication, and token persistence.
+- **QA & Testing:** Conducts user testing, feedback collection, and maintains test infrastructure.
+- **Documentation:** Updates README, contributor guides, troubleshooting, and verification instructions.
 
 ## Submission Checklist
 
@@ -104,7 +161,8 @@ Lockb0x Codex Forge — Secure, AI-powered, and ready for the future of digital 
 - **Upload File or Extract Page Content:** Select a file (text, PDF, JSON, binary, etc.) or extract content from the current web page.
 - **Anchor Selection:** Choose between mock or Google anchor. Sign in with Google for Drive integration.
 - **Payload Storage:** Uploaded files or extracted content are saved to your Google Drive account (if Google anchor is selected) and referenced in the Codex entry.
-- **Codex Entry Generation:** The extension hashes, canonicalizes, signs, and anchors your entry, using AI to generate metadata.
+- **Codex Entry Generation:** The extension hashes, canonicalizes, signs, and anchors your entry. 
+  - **Note:** AI metadata generation (summarization, process tags) currently uses simple text fallbacks rather than Chrome Built-In AI APIs.
 - **Export & Verification:** Before export, the extension validates payload existence in Drive. You can download the Codex entry as a JSON file, copy it to clipboard, and verify schema/signature in the popup. The payload download link is shown if existence is validated.
 
 ## Verification Instructions
@@ -117,20 +175,26 @@ Lockb0x Codex Forge — Secure, AI-powered, and ready for the future of digital 
 
 ## Roadmap & Hackathon Readiness
 
-All major improvements for a robust, user-friendly release are now implemented:
+### What's Working
+- ✓ Binary file upload support
+- ✓ Reliable Google auth token persistence
+- ✓ Improved error handling and UI feedback
+- ✓ Consistent workflow and file references
+- ✓ Download link for payload files
+- ✓ Enhanced schema validation and export polish
+- ✓ Core lockb0x protocol implementation
 
-- Binary file upload support
-- Reliable Google auth token persistence
-- Improved error handling and UI feedback
-- Consistent workflow and file references
-- Download link for payload files
-- Enhanced schema validation and export polish
+### What's Not Yet Implemented
+- ✗ Chrome Built-In AI integration (currently using fallbacks)
+- ✗ Test runner configuration
+- ✗ Some code quality improvements (linting warnings)
 
 **Current Status:**
 
 - Core features are complete and validated
-- UI/UX polish, error handling, and documentation expansion are in progress
-- Ready for hackathon/demo/production submission after final polish
+- Lockb0x protocol and Google Drive integration are robust and working
+- Chrome AI features are planned but use fallback implementations
+- Ready for demo/testing, but AI features require additional implementation
 
 See DEVELOPMENT-PLAN.md for full checklist and technical milestones
 
@@ -169,15 +233,30 @@ Roadmap for future development included
 All hackathon requirements mapped and documented
 Documentation is organized and accessible for judges
 
-## Current Build Status (as of 2025-10-14)
+## Current Build Status (as of 2025-11-01)
 
-## Current Build Status (as of 2025-10-24)
+### Implemented and Validated ✓
+- Protocol core (UUID, SHA-256, ni-URI, canonicalization, signing)
+- Google Drive integration for payload storage and anchoring
+- Mock anchor flow for local/offline testing
+- Binary file upload support for all file types
+- Schema validation (lockb0x codex v0.0.2)
+- Export and download functionality
+- Payload existence validation
+- UI/UX feedback with stepper status and error handling
 
-- Protocol core, AI metadata integration, and Google anchor integration are complete and working.
-- Binary file upload, Google Drive integration, and payload existence validation are robust and validated.
-- Schema validation and export polish are implemented and working in the popup.
-- UI/UX feedback, stepper status, and error handling are robust and incremental.
-- Unit testing for protocol, AI, validation, anchor logic, and payload existence is implemented.
+### Not Implemented ✗
+- Chrome Built-In AI integration
+  - No `chrome.ai.summarizer` implementation
+  - No `chrome.ai.prompt` implementation
+  - Currently using text truncation fallbacks
+- Test runner (test files exist but no npm test script)
+- Various code quality improvements (unused variables, etc.)
+
+### Known Issues
+- Linting warnings for unused variables in multiple files
+- Schema allows "gdrive" protocol but official schema template uses "gcs"
+- AI functions always fall back to non-AI implementations
 
 ## Troubleshooting & Error Handling
 

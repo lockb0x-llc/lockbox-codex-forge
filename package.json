@@ -7,7 +7,9 @@
   "scripts": {
 
     "lint": "eslint . --ext .js",
-    "format": "prettier --write \"**/*.{js,json,md,css,html}\""
+    "format": "prettier --write \"**/*.{js,json,md,css,html}\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "eslint": "^9.38.0",

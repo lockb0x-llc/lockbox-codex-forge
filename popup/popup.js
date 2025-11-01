@@ -1,3 +1,7 @@
+import { summarizeText } from "../lib/ai.js";
+
+// popup.js - Handles popup UI logic for Lockb0x Protocol Codex Forge
+
 // Handles Codex entry generation responses for both small and large files
 function handleCodexResponse(response) {
   // Stepper updates for small file workflow
@@ -158,8 +162,6 @@ function updateCodexUI(response, payloadExists, payloadValidationMsg) {
     if (copyBtn) copyBtn.style.display = "inline-block";
   }
 }
-import { summarizeText } from "../lib/ai.js";
-// popup.js - Handles popup UI logic for Lockb0x Protocol Codex Forge
 
 const fileInput = document.getElementById("fileInput");
 const extractPageBtn = document.getElementById("extractPageBtn");

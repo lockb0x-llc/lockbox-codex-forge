@@ -21,7 +21,7 @@ module.exports = [
       "no-unused-vars": ["warn", { 
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_",
-        "caughtErrors": "none"
+        "caughtErrorsIgnorePattern": "^_"
       }],
       "no-console": "off"
     },

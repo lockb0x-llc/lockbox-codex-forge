@@ -4,6 +4,7 @@
 ## Status Summary (Updated 2025-11-01)
 
 - See [README.md](../README.md) for current features, troubleshooting, and user guidance.
+- See [ZIP-ARCHIVE.md](./ZIP-ARCHIVE.md) for zip archive workflow and implementation details.
 - See [DEVELOPMENT-PLAN.md](./DEVELOPMENT-PLAN.md) for architecture, phased breakdown, and build status.
 
 ### What's Working ✓
@@ -16,11 +17,7 @@
 
 ### What's Not Implemented ✗
 
-- **Chrome Built-In AI Features:**
-  - No integration with experimental `chrome.ai.summarizer` API
-  - No integration with experimental `chrome.ai.prompt` API
-  - All AI functions (`summarizeContent`, `generateProcessTag`, `generateCertificateSummary`) currently use text truncation fallbacks
-  - Documentation incorrectly claimed AI features were implemented
+**Zip Archive Workflow:** Implementation in progress; this is the top priority for the next release and required before marketplace publication.
 - **Testing Infrastructure:**
   - Test files exist but no test runner script in package.json
   - Cannot run `npm test` without configuration
@@ -30,31 +27,22 @@
 
 ### Next Actions
 
-1. **Documentation Cleanup (IN PROGRESS):**
-   - ✓ Update README.md to reflect true AI implementation status
-   - Update AGENTS.md (this file) with accurate status
-   - Update DEVELOPMENT-PLAN.md with realistic roadmap
-   - Update GoogleCloudAnchor.md
+1. **Zip Archive Implementation (TOP PRIORITY):**
+   - Complete and validate the zip archive workflow (see ZIP-ARCHIVE.md)
+   - Integrate zip archive creation into extension operations
+   - Update all documentation and user guidance to reflect this workflow
 
-2. **Chrome AI Implementation Plan:**
-   - Research current Chrome Built-In AI API status and availability
-   - Determine correct API namespace and methods
-   - Implement feature detection for AI capabilities
-   - Create proper fallback chain: AI → text extraction → static defaults
-   - Add error handling for browsers without AI support
-   - Test on Chrome Canary/Dev channels with AI features enabled
-
-3. **Testing Infrastructure:**
+2. **Testing Infrastructure:**
    - Add test runner script to package.json
    - Configure test framework (vitest config exists)
    - Run existing tests and fix any failures
 
-4. **Code Quality:**
+3. **Code Quality:**
    - Fix all linting warnings
    - Remove unused variables and imports
    - Add JSDoc comments for public APIs
 
-5. **Future Enhancements:**
+4. **Future Enhancements:**
    - UI/UX polish and accessibility improvements
    - Expanded error handling and user guidance
    - Video tutorials and demos
@@ -72,19 +60,7 @@
 - **QA & Testing:** Conducts user testing, maintains test infrastructure, collects feedback
 - **Documentation:** Maintains README, contributor guides, troubleshooting docs
 
-## Hackathon Deliverable Assignments
 
-- File upload & payload storage: ✓ Complete (Protocol Engineer, UI/UX Designer)
-- Error handling & UI feedback: ✓ Complete (UI/UX Designer, QA & Testing)
-- Google auth token persistence: ✓ Complete (Google Cloud Integration)
-- Workflow & reference consistency: ✓ Complete (Protocol Engineer)
-- Schema validation & export polish: ✓ Complete (Protocol Engineer, QA & Testing)
-- Documentation updates: **IN PROGRESS** (Documentation, Project Lead)
-- Chrome AI integration: **NOT STARTED** (AI Integration - pending API availability)
-- Test infrastructure: **PARTIAL** (QA & Testing - files exist, need runner config)
-- Code quality cleanup: **PENDING** (All team members)
 
-## Progress Tracking
 
-See DEVELOPMENT-PLAN.md for unified checklist and milestone status. This document now reflects the true state of implementation as of 2025-11-01.
 

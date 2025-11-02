@@ -12,6 +12,7 @@ Create a Chrome Extension (Manifest V3) for secure, verifiable Codex Entries fro
 ## Current Status & Milestones (Updated 2025-11-01)
 
 ### Completed Features ✓
+ - Zip Archive workflow (see docs/ZIP-ARCHIVE.md) is the next milestone and must be completed before marketplace release.
 
 - **Lockb0x Protocol Core:**
   - UUIDv4 generation (RFC 9562)
@@ -40,17 +41,10 @@ Create a Chrome Extension (Manifest V3) for secure, verifiable Codex Entries fro
   - OAuth2 integration with Google (secure token storage)
   - Signature generation and verification structure
 
+
 ### Not Implemented ✗
 
-- **Chrome Built-In AI Integration:**
-  - Current status: References exist in code, but NOT connected to real Chrome AI APIs
-  - `lib/ai.js` has conditional checks for `chrome.ai.summarizer` and `chrome.ai.prompt`
-  - These APIs are either experimental or don't exist in the expected namespace
-  - All AI functions fall back to simple text operations:
-    - `summarizeContent()`: Returns first 100 characters with "AI Summary" prefix
-    - `generateProcessTag()`: Returns static tags based on content length
-    - `generateCertificateSummary()`: Returns template string with entry ID
-  - **No actual AI summarization or generation is happening**
+- **Zip Archive Workflow:** Implementation in progress; this is the top priority for the next release and required before marketplace publication.
 
 - **Test Infrastructure:**
   - Test files exist (*.test.js) for multiple modules
@@ -71,14 +65,10 @@ Create a Chrome Extension (Manifest V3) for secure, verifiable Codex Entries fro
    - Updating this file (DEVELOPMENT-PLAN.md)
    - Updating GoogleCloudAnchor.md
 
-2. **Chrome AI Implementation Plan:**
-   - Research: Identify correct Chrome Built-In AI API status
-   - Investigate: Chrome Canary/Dev channel AI capabilities
-   - Determine: Actual API namespace and methods (may be `chrome.aiOriginTrial.*` or similar)
-   - Implement: Feature detection for AI availability
-   - Create: Proper fallback chain (AI → extraction → static)
-   - Test: On browsers with and without AI features
-   - Document: Browser requirements and AI feature availability
+2. **Zip Archive Implementation (TOP PRIORITY):**
+  - Complete and validate the zip archive workflow (see ZIP-ARCHIVE.md)
+  - Integrate zip archive creation into extension operations
+  - Update all documentation and user guidance to reflect this workflow
 
 3. **Testing Infrastructure:**
    - Add `"test": "vitest"` to package.json scripts
@@ -95,6 +85,7 @@ Create a Chrome Extension (Manifest V3) for secure, verifiable Codex Entries fro
 ## Roadmap & Remaining Gaps
 
 ### Phase 1: Documentation & Transparency (Current)
+ - Prioritize Zip Archive feature implementation before extension is published to the marketplace.
 - ✓ Audit codebase for true implementation status
 - **IN PROGRESS:** Update all documentation to reflect reality
 - Document gaps and create implementation plan
@@ -106,18 +97,11 @@ Create a Chrome Extension (Manifest V3) for secure, verifiable Codex Entries fro
 - Improve error handling consistency
 - Add JSDoc documentation
 
-### Phase 3: Chrome AI Research & Planning
-- Research Chrome Built-In AI APIs (current status, availability, namespace)
-- Test on Chrome Canary/Dev with AI features enabled
-- Create proof-of-concept for actual AI integration
-- Document browser requirements and feature detection
 
-### Phase 4: Chrome AI Implementation
-- Implement real Chrome AI API integration
-- Replace fallback implementations with actual AI calls
-- Maintain fallback chain for browsers without AI
-- Add user messaging about AI feature availability
-- Test across browser versions
+### Phase 3: Zip Archive Implementation (Current Priority)
+- Complete zip archive workflow and validate integration
+- Update extension operations to use zip archive for payload and codex entry packaging
+- Update all documentation and user guidance to reflect zip archive workflow
 
 ### Phase 5: Production Polish
 - UI/UX refinements and accessibility
@@ -186,7 +170,7 @@ Create a Chrome Extension (Manifest V3) for secure, verifiable Codex Entries fro
 ## Team Assignments
 
 See AGENTS.md for current roles and responsibilities. Key updates:
-- **AI Integration role** is now marked as PENDING (not complete)
+- **Zip Archive Implementation role** is now marked as TOP PRIORITY
 - **Documentation role** is actively updating all docs for accuracy
 - **QA & Testing role** needs to configure test runner
 

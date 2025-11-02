@@ -3,7 +3,7 @@
 
 ## Overview
 
-Google Cloud Anchor integration enables secure, verifiable storage of Codex payloads in the authenticated user's Google Drive account. All file types (text, PDF, JSON, binary) are supported, and payload existence is validated before export. The extension provides robust error handling and UI feedback for all anchor and upload flows.
+Google Cloud Anchor integration enables secure, verifiable storage of Codex payloads in the authenticated user's Google Drive account. All file types (text, PDF, JSON, binary) are supported, and payload existence is validated before export. The extension provides robust error handling and UI feedback for all anchor and upload flows. The next milestone is the Zip Archive workflow (see docs/ZIP-ARCHIVE.md), which will package payloads and codex entries together for enhanced provenance and integrity before marketplace release.
 
 ## Current Status (Updated 2025-11-01)
 
@@ -76,23 +76,7 @@ The Google anchor implementation follows the lockb0x protocol specification:
 - **Quota Limits:** Google Drive API has quota limits; consider caching and batching requests
 - **CORS Issues:** Using chrome.identity API avoids CORS; don't switch to manual OAuth flow
 
-## Hackathon Plan Integration
 
-- **Completed Milestones:**
-  - ✓ Google OAuth2 integration
-  - ✓ Drive API payload upload
-  - ✓ Anchor metadata creation
-  - ✓ Token persistence
-  - ✓ Existence validation
-  - ✓ Error handling and UI feedback
-
-- **Future Enhancements:**
-  - Automatic token refresh
-  - Upload progress indicators for large files
-  - Retry logic for network failures
-  - Batch operations for multiple files
-  - Drive folder organization (dedicated Lockb0x folder)
-  - Metadata tagging for easier search
 
 ## References
 

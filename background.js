@@ -18,6 +18,7 @@ import {
   getGoogleAuthToken,
   setGoogleAuthToken,
   removeGoogleAuthToken,
+  getValidGoogleAuthToken,
 } from "./lib/google-auth-utils.js";
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -87,8 +88,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // Step 1: Upload payload to Google Drive (if Google anchor)
         let freshToken = null;
         if (anchorType === "google") {
-          // Always use the latest token from storage before upload and anchor
-          freshToken = await getGoogleAuthToken();
+          freshToken = await getValidGoogleAuthToken();
         }
         if (anchorType === "google" && freshToken) {
           let mimeType = "application/octet-stream";
@@ -103,16 +103,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               token: freshToken,
             });
           } catch (err) {
-            console.error(
-              "[background] Google Drive payload upload error:",
-              err,
-            );
-            sendResponse({
-              ok: false,
-              error: "Google Drive payload upload error",
-              details: err,
-            });
-            return;
+            // If 401, try refreshing token and retry once
+            if (err.message && err.message.includes("401")) {
+              await removeGoogleAuthToken();
+              freshToken = await getValidGoogleAuthToken();
+              try {
+                payloadDriveInfo = await uploadFileToGoogleDrive({
+                  bytes: fileBytes,
+                  filename,
+                  mimeType,
+                  token: freshToken,
+                });
+              } catch (err2) {
+                sendResponse({
+                  ok: false,
+                  error: "Google Drive payload upload error (after refresh)",
+                  details: err2,
+                });
+                return;
+              }
+            } else {
+              sendResponse({
+                ok: false,
+                error: "Google Drive payload upload error",
+                details: err,
+              });
+              return;
+            }
           }
         }
         // Step 2: Compute hash and integrity_proof
@@ -269,8 +286,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           let fileText = null;
           // Step 1: Upload payload to Google Drive (if Google anchor)
           if (metadata.anchorType === "google") {
-            // Always use the latest token from storage for chunked uploads
-            metadata.googleAuthToken = await getGoogleAuthToken();
+            metadata.googleAuthToken = await getValidGoogleAuthToken();
             let mimeType = "application/octet-stream";
             if (metadata.filename.match(/\.txt$/i)) mimeType = "text/plain";
             else if (metadata.filename.match(/\.json$/i))
@@ -285,12 +301,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 token: metadata.googleAuthToken,
               });
             } catch (err) {
-              port.postMessage({
-                ok: false,
-                error: "Google Drive payload upload error",
-                details: err,
-              });
-              return;
+              // If 401, try refreshing token and retry once
+              if (err.message && err.message.includes("401")) {
+                await removeGoogleAuthToken();
+                metadata.googleAuthToken = await getValidGoogleAuthToken();
+                try {
+                  payloadDriveInfo = await uploadFileToGoogleDrive({
+                    bytes: fileBytes,
+                    filename: metadata.filename,
+                    mimeType,
+                    token: metadata.googleAuthToken,
+                  });
+                } catch (err2) {
+                  port.postMessage({
+                    ok: false,
+                    error: "Google Drive payload upload error (after refresh)",
+                    details: err2,
+                  });
+                  return;
+                }
+              } else {
+                port.postMessage({
+                  ok: false,
+                  error: "Google Drive payload upload error",
+                  details: err,
+                });
+                return;
+              }
             }
           }
           // Step 2: Compute hash and integrity_proof

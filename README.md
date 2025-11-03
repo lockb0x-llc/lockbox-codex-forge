@@ -11,33 +11,30 @@ Lockb0x Codex Forge is a Chrome Extension (Manifest V3) for creating secure, ver
 ### Implemented and Validated
  - **Lockb0x Protocol Core:** Complete implementation of UUID generation, SHA-256 hashing, ni-URI encoding, JSON canonicalization (RFC 8785), and ES256 signing
 - **File Upload Support:** Upload and anchor any file type (text, PDF, JSON, binary) to Google Drive or mock storage
-- **Google Drive Integration:** Secure payload storage, authentication, and token persistence in chrome.storage
+- **Zip Archive Workflow:** Payload and codex entry are packaged together in an encrypted, verifiable zip archive (see docs/ZIP-ARCHIVE.md)
+- **Google Drive Integration:** Secure zip archive storage, authentication, and token persistence in chrome.storage
 - **Dual Anchor Support:** Both mock (local) and Google Drive anchor flows fully functional
 - **Codex Entry Generation:** Complete workflow for hashing, canonicalizing, signing, anchoring, and validating entries
 - **Schema Validation:** Validation against lockb0x schema v0.0.2 runs before export, with feedback shown in popup
-- **Export Options:** Download and copy Codex entry as JSON from popup UI
-- **Payload Validation:** Existence validation in Drive before export, with download link shown if validated
+- **Export Options:** Download codex entry and zip archive as JSON from popup UI
+- **Zip Archive Validation:** Existence validation in Drive before export, with download link shown if validated
 - **UI/UX:** Incremental stepper feedback, error messages, and recovery instructions for all workflow steps
 
 ### Not Yet Implemented
-- **Zip Archive Workflow:** The payload and codex entry are packaged together in a verifiable zip archive (see docs/ZIP-ARCHIVE.md). This is the top priority for the next release.
- - **Zip Archiving:** Archive payloads as zip files for efficient storage and export
- - **Lockb0x Codex Reciept & Proof Primitive:** Generate and export the final file format for digital provenance and verification
+- **Chrome Built-In AI:** Chrome AI APIs (summarizer, prompt) are still experimental and not widely available. Currently using fallback text extraction for metadata generation.
 
 ## Current Status
 
 ### Validated and Working ✓
 - **Lockb0x Protocol Implementation:** All core protocol features (UUID, hashing, ni-URI, signing, canonicalization) are complete and validated
-- **Google Drive Integration:** Payload storage, anchor creation, and existence validation are robust and working
+- **Zip Archive Workflow:** Payload and codex entry are packaged together in an encrypted, verifiable zip archive with dual signatures
+- **Google Drive Integration:** Zip archive storage, anchor creation, and existence validation are robust and working
 - **Mock Anchor Flow:** Local/offline anchor generation is fully functional
 - **Schema Validation:** Codex entries validate against schema v0.0.2
-- **UI/UX:** Complete workflow with incremental feedback, error handling, and stepper status
+- **UI/UX:** Complete workflow with incremental feedback, error handling, stepper status, and zip download capability
 
 ### Known Gaps
-- **Zip Archive Workflow:** The payload and codex entry are packaged together in a verifiable zip archive (see docs/ZIP-ARCHIVE.md). This is the top priority for the next release.
- - **Zip Archiving:** Archive payloads as zip files for efficient storage and export
- - **Lockb0x Codex Receipt & Proof Primitive:** Generate and export the final file format for digital provenance and verification
-- **Code Quality:** All linting warnings have been fixed
+- **Chrome Built-In AI:** Chrome AI APIs (summarizer, prompt) are still experimental and not widely available. Currently using fallback text extraction for metadata generation.
 
 ### Proof of Concept Status
 The extension successfully demonstrates:
@@ -98,18 +95,19 @@ Refer to these utilities and patterns for any future Google API integration or t
 
 ## Roadmap
 
-### Next Milestone: Zip Archive Feature
- - Zip archiving for payloads (see docs/ZIP-ARCHIVE.md)
- - Lockb0x Codex Recept and Proof Primitive file format
- - The extension will not be published to the marketplace until the Zip Archive workflow is fully implemented and validated.
+### Next Milestone: Production Release
+The Zip Archive workflow is now fully implemented and validated. The extension is ready for final testing and marketplace publication.
+- ✓ Zip archiving for payloads (encrypted with user email or 'mock' password)
+- ✓ Dual signature workflow (before and after zip upload)
+- ✓ Lockb0x Codex Receipt and Proof Primitive file format
 - ✓ Binary file upload support for all payloads
 - ✓ Reliable Google auth token persistence
 - ✓ Improved error handling and UI feedback
 - ✓ Consistent workflow and file references
-- ✓ Download link for payload files
+- ✓ Download link for zip archive files
 - ✓ Enhanced schema validation and export polish
 - ✓ Lockb0x protocol core implementation
-- ✓ Google Drive integration and payload validation
+- ✓ Google Drive integration and zip archive validation
 
 ### Planned / In Progress
  - Final release and publication on Google Marketplace
@@ -162,17 +160,31 @@ For more details, see:
 
 - **Upload File or Extract Page Content:** Select a file (text, PDF, JSON, binary, etc.) or extract content from the current web page.
 - **Anchor Selection:** Choose between mock or Google anchor. Sign in with Google for Drive integration.
-- **Payload Storage:** Uploaded files or extracted content are saved to your Google Drive account (if Google anchor is selected) and referenced in the Codex entry.
-- **Codex Entry Generation:** The extension hashes, canonicalizes, signs, and anchors your entry. 
+- **Zip Archive Creation:** The extension creates an encrypted zip archive containing:
+  - Your uploaded file or extracted content (original filename preserved)
+  - A codex-entry.json file with metadata (excluding storage location and anchor details until after upload)
+  - Archive-level comment with full codex entry for provenance
+- **Encryption:** Zip archive is encrypted with your Google email (if using Google anchor) or with 'mock' password (if using mock anchor)
+- **Codex Entry Generation:** The extension hashes, canonicalizes, signs, and anchors your entry twice:
+  - Initial signature before zip creation
+  - Updated signature after zip upload with storage metadata
   - **Note:** AI metadata generation (summarization, process tags) currently uses simple text fallbacks rather than Chrome Built-In AI APIs.
-- **Export & Verification:** Before export, the extension validates payload existence in Drive. You can download the Codex entry as a JSON file, copy it to clipboard, and verify schema/signature in the popup. The payload download link is shown if existence is validated.
+- **Export & Verification:** Before export, the extension validates zip archive existence in Drive. You can download:
+  - The final Codex entry as a JSON file
+  - The encrypted zip archive (locally or from Drive)
+  - Copy the codex entry to clipboard
+  - View schema and signature validation results in the popup
 
 ## Verification Instructions
 
-- Download the payload from the Drive link in the Codex entry (only if existence is validated)
-- Compute SHA-256 hash and compare to integrity_proof
+- Download the encrypted zip archive from the Drive link in the Codex entry (or download locally from popup)
+- Extract the zip archive using the password (your Google email or 'mock')
+- Verify the payload file matches the original
+- Compare the codex-entry.json in the zip with the final codex entry (should match except for storage.location, anchor.tx, anchor.url)
+- Verify the archive-level comment contains the full final codex entry
+- Compute SHA-256 hash of the payload and compare to integrity_proof in the codex entry
 - Confirm anchor file exists and matches metadata
-- Validate ES256 signature using the JWK in kid
+- Validate ES256 signatures using the JWK in kid
 - Use provided verification script or tool for automated checks
 
 

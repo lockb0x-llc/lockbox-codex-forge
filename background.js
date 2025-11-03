@@ -7,11 +7,13 @@ import {
 } from "./lib/protocol.js";
 import { summarizeContent, generateProcessTag } from "./lib/ai.js";
 import { validateCodexEntry } from "./lib/validate.js";
-import { signCodexEntry, buildUnsignedCodexEntry } from "./lib/codex-utils.js";
+import { signCodexEntry, buildUnsignedCodexEntry, updateCodexEntryWithStorage } from "./lib/codex-utils.js";
+import { createCodexZipArchive } from "./lib/zip-archive.js";
 
 import {
   uploadFileToGoogleDrive,
   uploadCodexEntryToGoogleDrive,
+  uploadZipArchiveToGoogleDrive,
   checkDriveFileExists,
 } from "./lib/drive-utils.js";
 import {
@@ -19,6 +21,7 @@ import {
   setGoogleAuthToken,
   removeGoogleAuthToken,
   getValidGoogleAuthToken,
+  fetchGoogleUserProfile,
 } from "./lib/google-auth-utils.js";
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -60,24 +63,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg.type === "CREATE_CODEX_FROM_FILE") {
-    // Always send a response for unhandled message types
-    if (
-      ![
-        "GOOGLE_AUTH_REQUEST",
-        "VALIDATE_PAYLOAD_EXISTENCE",
-        "CREATE_CODEX_FROM_FILE",
-      ].includes(msg.type)
-    ) {
-      sendResponse({ ok: false, error: "Unknown message type" });
-      return false;
-    }
     (async function () {
       try {
-        const { bytes, filename, anchorType, googleAuthToken } = msg.payload;
+        const { bytes, filename, anchorType } = msg.payload;
         const fileBytes = new Uint8Array(bytes);
-        let payloadDriveInfo = null;
+        let zipDriveInfo = null;
         let codexDriveInfo = null;
-        let codexSelfRefInfo = null;
         let entry = null;
         let anchor = null;
         let subject = null;
@@ -85,54 +76,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let hash = null;
         let integrity = null;
         let fileText = null;
-        // Step 1: Upload payload to Google Drive (if Google anchor)
+        let zipBlob = null;
+        
+        // Get token if Google anchor
         let freshToken = null;
         if (anchorType === "google") {
           freshToken = await getValidGoogleAuthToken();
         }
+        
+        // Get user email for encryption password
+        let encryptionPassword = "mock"; // Default for mock anchor
         if (anchorType === "google" && freshToken) {
-          let mimeType = "application/octet-stream";
-          if (filename.match(/\.txt$/i)) mimeType = "text/plain";
-          else if (filename.match(/\.json$/i)) mimeType = "application/json";
-          else if (filename.match(/\.md$/i)) mimeType = "text/markdown";
           try {
-            payloadDriveInfo = await uploadFileToGoogleDrive({
-              bytes: fileBytes,
-              filename,
-              mimeType,
-              token: freshToken,
-            });
-          } catch (err) {
-            // If 401, try refreshing token and retry once
-            if (err.message && err.message.includes("401")) {
-              await removeGoogleAuthToken();
-              freshToken = await getValidGoogleAuthToken();
-              try {
-                payloadDriveInfo = await uploadFileToGoogleDrive({
-                  bytes: fileBytes,
-                  filename,
-                  mimeType,
-                  token: freshToken,
-                });
-              } catch (err2) {
-                sendResponse({
-                  ok: false,
-                  error: "Google Drive payload upload error (after refresh)",
-                  details: err2,
-                });
-                return;
-              }
-            } else {
-              sendResponse({
-                ok: false,
-                error: "Google Drive payload upload error",
-                details: err,
-              });
-              return;
+            const userProfile = await fetchGoogleUserProfile(freshToken);
+            if (userProfile && userProfile.email) {
+              encryptionPassword = userProfile.email;
             }
+          } catch (err) {
+            console.warn("[background] Could not fetch user profile, using 'mock' password:", err);
           }
         }
-        // Step 2: Compute hash and integrity_proof
+        
+        // Step 1: Compute hash and integrity_proof
         try {
           hash = await sha256(fileBytes);
           integrity = niSha256(hash);
@@ -150,7 +115,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: false, error: "Pre-anchor error", details: err });
           return;
         }
-        // Step 3: Anchor
+        
+        // Step 2: Create initial anchor (without tx/url)
         if (anchorType === "google" && freshToken) {
           try {
             anchor = await anchorGoogle(
@@ -182,14 +148,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             return;
           }
         }
-        // Step 4: Build unsigned Codex entry
+        
+        // Step 3: Build initial unsigned Codex entry (without storage.location)
         const codexId = uuidv4();
         entry = buildUnsignedCodexEntry({
           id: codexId,
-          payloadDriveId: payloadDriveInfo ? payloadDriveInfo.id : undefined,
-          payloadDriveUrl: payloadDriveInfo
-            ? `https://drive.google.com/file/d/${payloadDriveInfo.id}`
-            : filename,
+          payloadDriveId: undefined,
+          payloadDriveUrl: undefined, // Will be set after zip upload
           integrity_proof: integrity,
           org: "Codex Forge",
           process: processTag,
@@ -197,10 +162,76 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           subject,
           anchor,
           createdBy: msg.payload.createdBy,
-          protocol:
-            anchorType === "google" && payloadDriveInfo ? "gdrive" : "local",
+          protocol: anchorType === "google" ? "gdrive" : "local",
         });
+        
+        // Step 4: Sign initial codex entry
         await signCodexEntry(entry);
+        
+        // Step 5: Create zip archive with payload and initial codex entry
+        try {
+          zipBlob = await createCodexZipArchive(
+            fileBytes,
+            filename,
+            entry,
+            encryptionPassword
+          );
+        } catch (err) {
+          console.error("[background] Zip archive creation error:", err);
+          sendResponse({
+            ok: false,
+            error: "Zip archive creation error",
+            details: err,
+          });
+          return;
+        }
+        
+        // Step 6: Upload zip archive to Google Drive (if Google anchor)
+        if (anchorType === "google" && freshToken) {
+          try {
+            zipDriveInfo = await uploadZipArchiveToGoogleDrive({
+              zipBlob,
+              filename: `${codexId}.zip`,
+              token: freshToken,
+            });
+          } catch (err) {
+            // If 401, try refreshing token and retry once
+            if (err.message && err.message.includes("401")) {
+              await removeGoogleAuthToken();
+              freshToken = await getValidGoogleAuthToken();
+              try {
+                zipDriveInfo = await uploadZipArchiveToGoogleDrive({
+                  zipBlob,
+                  filename: `${codexId}.zip`,
+                  token: freshToken,
+                });
+              } catch (err2) {
+                sendResponse({
+                  ok: false,
+                  error: "Google Drive zip upload error (after refresh)",
+                  details: err2,
+                });
+                return;
+              }
+            } else {
+              sendResponse({
+                ok: false,
+                error: "Google Drive zip upload error",
+                details: err,
+              });
+              return;
+            }
+          }
+          
+          // Step 7: Update codex entry with zip storage metadata
+          await updateCodexEntryWithStorage(entry, {
+            location: `https://drive.google.com/file/d/${zipDriveInfo.id}`,
+            tx: zipDriveInfo.id,
+            url: zipDriveInfo.webViewLink,
+          });
+        }
+        
+        // Step 8: Upload final codex entry to Google Drive (if Google anchor)
         if (anchorType === "google" && freshToken) {
           try {
             codexDriveInfo = await uploadCodexEntryToGoogleDrive({
@@ -220,6 +251,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             return;
           }
         }
+        
         console.log(
           "[background] Debug protocol before validation:",
           entry.storage.protocol,
@@ -236,9 +268,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({
           ok: true,
           entry,
-          payloadDriveInfo,
+          zipDriveInfo,
+          zipBlob, // Include zip blob for download
           codexDriveInfo,
-          codexSelfRefInfo,
         });
       } catch (err) {
         console.error("[background] Unexpected error:", err);
@@ -247,11 +279,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
-  // --- Large file chunked upload support ---
-  chrome.runtime.onConnect.addListener(function (port) {
-    let chunks = [];
-    let metadata = {};
-    port.onMessage.addListener(async function (msg) {
+});
+
+// --- Large file chunked upload support ---
+chrome.runtime.onConnect.addListener(function (port) {
+  let chunks = [];
+  let metadata = {};
+  port.onMessage.addListener(async function (msg) {
       if (msg.type === "START_LARGE_FILE_UPLOAD") {
         metadata = {
           filename: msg.filename,
@@ -273,10 +307,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         try {
           const allBytes = chunks.flat();
           const fileBytes = new Uint8Array(allBytes);
-          // Reuse normal workflow
-          let payloadDriveInfo = null;
+          // Reuse zip archive workflow
+          let zipDriveInfo = null;
           let codexDriveInfo = null;
-          let codexSelfRefInfo = null;
           let entry = null;
           let anchor = null;
           let subject = null;
@@ -284,53 +317,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           let hash = null;
           let integrity = null;
           let fileText = null;
-          // Step 1: Upload payload to Google Drive (if Google anchor)
+          let zipBlob = null;
+          
+          // Get token if Google anchor
+          let freshToken = null;
           if (metadata.anchorType === "google") {
-            metadata.googleAuthToken = await getValidGoogleAuthToken();
-            let mimeType = "application/octet-stream";
-            if (metadata.filename.match(/\.txt$/i)) mimeType = "text/plain";
-            else if (metadata.filename.match(/\.json$/i))
-              mimeType = "application/json";
-            else if (metadata.filename.match(/\.md$/i))
-              mimeType = "text/markdown";
+            freshToken = await getValidGoogleAuthToken();
+          }
+          
+          // Get user email for encryption password
+          let encryptionPassword = "mock"; // Default for mock anchor
+          if (metadata.anchorType === "google" && freshToken) {
             try {
-              payloadDriveInfo = await uploadFileToGoogleDrive({
-                bytes: fileBytes,
-                filename: metadata.filename,
-                mimeType,
-                token: metadata.googleAuthToken,
-              });
-            } catch (err) {
-              // If 401, try refreshing token and retry once
-              if (err.message && err.message.includes("401")) {
-                await removeGoogleAuthToken();
-                metadata.googleAuthToken = await getValidGoogleAuthToken();
-                try {
-                  payloadDriveInfo = await uploadFileToGoogleDrive({
-                    bytes: fileBytes,
-                    filename: metadata.filename,
-                    mimeType,
-                    token: metadata.googleAuthToken,
-                  });
-                } catch (err2) {
-                  port.postMessage({
-                    ok: false,
-                    error: "Google Drive payload upload error (after refresh)",
-                    details: err2,
-                  });
-                  return;
-                }
-              } else {
-                port.postMessage({
-                  ok: false,
-                  error: "Google Drive payload upload error",
-                  details: err,
-                });
-                return;
+              const userProfile = await fetchGoogleUserProfile(freshToken);
+              if (userProfile && userProfile.email) {
+                encryptionPassword = userProfile.email;
               }
+            } catch (err) {
+              console.warn("[background] Could not fetch user profile, using 'mock' password:", err);
             }
           }
-          // Step 2: Compute hash and integrity_proof
+          
+          // Step 1: Compute hash and integrity_proof
           try {
             hash = await sha256(fileBytes);
             integrity = niSha256(hash);
@@ -351,12 +359,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             });
             return;
           }
-          // Step 3: Anchor
-          if (metadata.anchorType === "google" && metadata.googleAuthToken) {
+          
+          // Step 2: Create initial anchor
+          if (metadata.anchorType === "google" && freshToken) {
             try {
               anchor = await anchorGoogle(
                 { id: uuidv4(), storage: { integrity_proof: integrity } },
-                metadata.googleAuthToken,
+                freshToken,
               );
             } catch (err) {
               port.postMessage({
@@ -381,14 +390,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               return;
             }
           }
-          // Step 4: Build unsigned Codex entry
+          
+          // Step 3: Build initial unsigned Codex entry
           const codexId = uuidv4();
           entry = buildUnsignedCodexEntry({
             id: codexId,
-            payloadDriveId: payloadDriveInfo ? payloadDriveInfo.id : undefined,
-            payloadDriveUrl: payloadDriveInfo
-              ? `https://drive.google.com/file/d/${payloadDriveInfo.id}`
-              : metadata.filename,
+            payloadDriveId: undefined,
+            payloadDriveUrl: undefined,
             integrity_proof: integrity,
             org: "Codex Forge",
             process: processTag,
@@ -396,17 +404,80 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             subject,
             anchor,
             createdBy: metadata.createdBy,
-            protocol:
-              metadata.anchorType === "google" && payloadDriveInfo
-                ? "gdrive"
-                : "local",
+            protocol: metadata.anchorType === "google" ? "gdrive" : "local",
           });
+          
+          // Step 4: Sign initial codex entry
           await signCodexEntry(entry);
-          if (metadata.anchorType === "google" && metadata.googleAuthToken) {
+          
+          // Step 5: Create zip archive
+          try {
+            zipBlob = await createCodexZipArchive(
+              fileBytes,
+              metadata.filename,
+              entry,
+              encryptionPassword
+            );
+          } catch (err) {
+            port.postMessage({
+              ok: false,
+              error: "Zip archive creation error",
+              details: err,
+            });
+            return;
+          }
+          
+          // Step 6: Upload zip archive to Google Drive
+          if (metadata.anchorType === "google" && freshToken) {
+            try {
+              zipDriveInfo = await uploadZipArchiveToGoogleDrive({
+                zipBlob,
+                filename: `${codexId}.zip`,
+                token: freshToken,
+              });
+            } catch (err) {
+              // If 401, try refreshing token and retry once
+              if (err.message && err.message.includes("401")) {
+                await removeGoogleAuthToken();
+                freshToken = await getValidGoogleAuthToken();
+                try {
+                  zipDriveInfo = await uploadZipArchiveToGoogleDrive({
+                    zipBlob,
+                    filename: `${codexId}.zip`,
+                    token: freshToken,
+                  });
+                } catch (err2) {
+                  port.postMessage({
+                    ok: false,
+                    error: "Google Drive zip upload error (after refresh)",
+                    details: err2,
+                  });
+                  return;
+                }
+              } else {
+                port.postMessage({
+                  ok: false,
+                  error: "Google Drive zip upload error",
+                  details: err,
+                });
+                return;
+              }
+            }
+            
+            // Step 7: Update codex entry with zip storage metadata
+            await updateCodexEntryWithStorage(entry, {
+              location: `https://drive.google.com/file/d/${zipDriveInfo.id}`,
+              tx: zipDriveInfo.id,
+              url: zipDriveInfo.webViewLink,
+            });
+          }
+          
+          // Step 8: Upload final codex entry
+          if (metadata.anchorType === "google" && freshToken) {
             try {
               codexDriveInfo = await uploadCodexEntryToGoogleDrive({
                 entry,
-                token: metadata.googleAuthToken,
+                token: freshToken,
               });
             } catch (err) {
               port.postMessage({
@@ -429,9 +500,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           port.postMessage({
             ok: true,
             entry,
-            payloadDriveInfo,
+            zipDriveInfo,
+            zipBlob, // Include zip blob for download
             codexDriveInfo,
-            codexSelfRefInfo,
           });
         } catch (err) {
           port.postMessage({
@@ -443,5 +514,3 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
     });
   });
-  return false;
-});

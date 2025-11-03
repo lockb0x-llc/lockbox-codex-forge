@@ -1,4 +1,5 @@
 import { summarizeText } from "../lib/ai.js";
+import { readFile } from "../lib/file-utils.js";
 import {
   setStatusMessage,
   toggleButtonVisibility,
@@ -152,6 +153,7 @@ import {
   getGoogleAuthToken,
   setGoogleAuthToken,
   removeGoogleAuthToken,
+  fetchGoogleUserProfile,
 } from "../lib/google-auth-utils.js";
 
 let googleAuthToken = null;
@@ -159,6 +161,7 @@ let googleAuthToken = null;
 // Load token from chrome.storage on startup
 getGoogleAuthToken().then((token) => {
   googleAuthToken = token;
+  updateAuthUI();
 });
 
 const userProfileDiv = document.createElement("div");
@@ -191,19 +194,16 @@ async function updateAuthUI() {
     authStatus.style.color = "#00796b";
     userProfileDiv.textContent = "Loading profile...";
     userProfileDiv.style.display = "block";
-    // Try to load profile from chrome.storage first
     chrome.storage.local.get(["googleUserProfile"], async (result) => {
       let profile = result.googleUserProfile;
       if (!profile) {
-        // If not cached, fetch from Google
-        const { fetchGoogleUserProfile } = await import("../lib/google-auth-utils.js");
         profile = await fetchGoogleUserProfile(googleAuthToken);
       }
       if (profile && profile.name && profile.email && profile.picture) {
         userProfileDiv.innerHTML = `<img src="${profile.picture}" alt="avatar" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px;"> <span style="font-weight:bold;">${profile.name}</span> <span style="color:#616161;">(${profile.email})</span>`;
       } else {
         userProfileDiv.textContent = "Google profile unavailable. Please sign in again.";
-        statusDiv.textContent = "Google profile unavailable. Try signing in again.";
+        setStatusMessage("Google profile unavailable. Try signing in again.", "error");
       }
     });
   } else {
@@ -217,38 +217,23 @@ async function updateAuthUI() {
 
 fileInput.addEventListener("change", (e) => {
   const file = e.target.files[0];
-  console.log("[popup] File input changed:", file);
   if (!file) {
-    showError("No file selected.", "Please choose a file to upload.");
+    setStatusMessage("No file selected.", "error", "Please choose a file to upload.");
     return;
   }
-  const isText =
-    file.type.startsWith("text") || file.name.match(/\.(txt|md|json)$/i);
-  const reader = new FileReader();
-  reader.onload = function (evt) {
-    if (isText) {
-      extractedData = evt.target.result;
-      extractedBytes = new TextEncoder().encode(extractedData);
-    } else {
-      extractedBytes = new Uint8Array(evt.target.result);
+  readFile(file, (bytes, data, err) => {
+    if (err) {
+      setStatusMessage("Error reading file.", "error", "Try a different file or check file format.");
+      console.error("[popup] FileReader error:", err);
       extractedData = "";
+      extractedBytes = null;
+      return;
     }
-    statusDiv.textContent = `Loaded file: ${file.name}`;
-    statusDiv.style.color = "#00796b";
+    extractedBytes = bytes;
+    extractedData = data;
+    setStatusMessage(`Loaded file: ${file.name}`, "success");
     console.log("[popup] File loaded:", file.name);
-  };
-  reader.onerror = function (err) {
-    showError(
-      "Error reading file.",
-      "Try a different file or check file format.",
-    );
-    console.error("[popup] FileReader error:", err);
-  };
-  if (isText) {
-    reader.readAsText(file);
-  } else {
-    reader.readAsArrayBuffer(file);
-  }
+  });
 });
 
 extractPageBtn &&
@@ -358,7 +343,7 @@ if (anchorType && googleSignInBtn && authStatus) {
 
 if (googleSignInBtn && authStatus) {
   googleSignInBtn.addEventListener("click", async () => {
-    statusDiv.textContent = "Signing in to Google...";
+    setStatusMessage("Signing in to Google...", "info");
     console.log("[popup] Google sign-in button clicked");
     chrome.runtime.sendMessage(
       { type: "GOOGLE_AUTH_REQUEST" },
@@ -367,19 +352,11 @@ if (googleSignInBtn && authStatus) {
         if (response && response.ok && response.token) {
           googleAuthToken = response.token;
           await setGoogleAuthToken(response.token);
-          // Fetch and store user profile
-          const { fetchGoogleUserProfile } = await import(
-            "../lib/google-auth-utils.js"
-          );
           await fetchGoogleUserProfile(response.token);
-          statusDiv.textContent = "Google sign-in successful.";
-          statusDiv.style.color = "#00796b";
+          setStatusMessage("Google sign-in successful.", "success");
           updateAuthUI();
         } else {
-          showError(
-            "Google sign-in failed.",
-            "Check your Chrome login or try again.",
-          );
+          setStatusMessage("Google sign-in failed.", "error", "Check your Chrome login or try again.");
           updateAuthUI();
           console.error("[popup] Google sign-in failed:", response);
         }
@@ -389,7 +366,7 @@ if (googleSignInBtn && authStatus) {
 }
 
 googleLogOutBtn.addEventListener("click", async () => {
-  statusDiv.textContent = "Logging out from Google...";
+  setStatusMessage("Logging out from Google...", "info");
   if (!googleAuthToken) {
     updateAuthUI();
     return;
@@ -399,7 +376,7 @@ googleLogOutBtn.addEventListener("click", async () => {
     async function () {
       await removeGoogleAuthToken();
       googleAuthToken = null;
-      statusDiv.textContent = "Logged out from Google.";
+      setStatusMessage("Logged out from Google.", "success");
       await updateAuthUI();
     },
   );

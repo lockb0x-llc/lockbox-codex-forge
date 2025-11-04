@@ -1,4 +1,3 @@
-// ...existing code...
 import { checkDriveFileExists } from "./lib/drive-utils.js";
 import {
   getGoogleAuthToken,
@@ -51,12 +50,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async function () {
       const result = await handleSmallFileUpload({ ...msg.payload });
       if (result.ok) {
+          // Archive and upload zip after successful small file upload
+          const { processCodexEntryAndArchive } = await import("./lib/codex-workflow.js");
+          const payloadBytes = new Uint8Array(msg.payload.bytes);
+          const payloadFilename = msg.payload.filename;
+          const codexEntry = result.entry;
+          const storageMetadata = {
+            location: codexEntry.storage?.location,
+            tx: codexEntry.anchor?.tx,
+            url: codexEntry.anchor?.url,
+          };
+          const driveToken = msg.payload.googleAuthToken;
+          let zipResult = null;
+          try {
+            zipResult = await processCodexEntryAndArchive({ payloadBytes, payloadFilename, codexEntry, storageMetadata, driveToken });
+          } catch (err) {
+            zipResult = { error: err.message };
+          }
         sendResponse({
           ok: true,
           entry: result.entry,
           payloadDriveInfo: result.payloadDriveInfo,
           codexDriveInfo: result.codexDriveInfo,
           codexSelfRefInfo: result.codexSelfRefInfo,
+            zipUploadResult: zipResult?.driveResult || null,
+            zipError: zipResult?.error || null,
         });
       } else {
         sendResponse({
@@ -93,12 +111,32 @@ chrome.runtime.onConnect.addListener(function (port) {
     } else if (msg.type === "END_LARGE_FILE_UPLOAD") {
       const result = await handleLargeFileUpload(metadata, chunks);
       if (result.ok) {
+          // Archive and upload zip after successful large file upload
+          const { processCodexEntryAndArchive } = await import("./lib/codex-workflow.js");
+          // Reconstruct payload bytes from chunks
+          const payloadBytes = new Uint8Array([].concat(...chunks));
+          const payloadFilename = metadata.filename;
+          const codexEntry = result.entry;
+          const storageMetadata = {
+            location: codexEntry.storage?.location,
+            tx: codexEntry.anchor?.tx,
+            url: codexEntry.anchor?.url,
+          };
+          const driveToken = metadata.googleAuthToken;
+          let zipResult = null;
+          try {
+            zipResult = await processCodexEntryAndArchive({ payloadBytes, payloadFilename, codexEntry, storageMetadata, driveToken });
+          } catch (err) {
+            zipResult = { error: err.message };
+          }
         port.postMessage({
           ok: true,
           entry: result.entry,
           payloadDriveInfo: result.payloadDriveInfo,
           codexDriveInfo: result.codexDriveInfo,
           codexSelfRefInfo: result.codexSelfRefInfo,
+            zipUploadResult: zipResult?.driveResult || null,
+            zipError: zipResult?.error || null,
         });
       } else {
         port.postMessage({

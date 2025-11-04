@@ -1,3 +1,4 @@
+// popup.js - Handles popup UI logic for Lockb0x Protocol Codex Forge
 import { summarizeText } from "../lib/ai.js";
 import { readFile, extractPageContent } from "../lib/file-utils.js";
 import {
@@ -9,7 +10,30 @@ import {
   updateStepper
 } from "./popup-ui.js";
 
-// popup.js - Handles popup UI logic for Lockb0x Protocol Codex Forge
+import {
+  getGoogleAuthToken,
+  setGoogleAuthToken,
+  removeGoogleAuthToken,
+  fetchGoogleUserProfile,
+} from "../lib/google-auth-utils.js";
+
+const fileInput = document.getElementById("fileInput");
+const extractPageBtn = document.getElementById("extractPageBtn");
+const anchorType = document.getElementById("anchorType");
+const googleSignInBtn = document.getElementById("googleSignInBtn");
+const generateBtn = document.getElementById("generateBtn");
+const entryForm = document.getElementById("entryForm");
+const jsonResult = document.getElementById("jsonResult");
+const aiSummary = document.getElementById("aiSummary");
+const downloadBtn = document.getElementById("downloadBtn");
+const copyBtn = document.getElementById("copyBtn");
+const statusDiv = document.getElementById("status");
+
+let googleAuthToken = null;
+let googleLogOutBtn = document.getElementById("googleLogOutBtn");
+
+let extractedData = "";
+let extractedBytes = null;
 
 // Handles Codex entry generation responses for both small and large files
 function handleCodexResponse(response) {
@@ -121,11 +145,6 @@ function updateCodexUI(response, payloadExists, payloadValidationMsg) {
   }
 }
 
-const fileInput = document.getElementById("fileInput");
-const extractPageBtn = document.getElementById("extractPageBtn");
-const anchorType = document.getElementById("anchorType");
-const googleSignInBtn = document.getElementById("googleSignInBtn");
-let googleLogOutBtn = document.getElementById("googleLogOutBtn");
 if (!googleLogOutBtn) {
   googleLogOutBtn = document.createElement("button");
   googleLogOutBtn.id = "googleLogOutBtn";
@@ -136,27 +155,8 @@ if (!googleLogOutBtn) {
     googleSignInBtn.nextSibling,
   );
 }
-const generateBtn = document.getElementById("generateBtn");
-const entryForm = document.getElementById("entryForm");
-const jsonResult = document.getElementById("jsonResult");
-// ...existing code...
-const aiSummary = document.getElementById("aiSummary");
-const downloadBtn = document.getElementById("downloadBtn");
-const copyBtn = document.getElementById("copyBtn");
-const statusDiv = document.getElementById("status");
 
-let extractedData = "";
-let extractedBytes = null;
-// ...existing code...
 
-import {
-  getGoogleAuthToken,
-  setGoogleAuthToken,
-  removeGoogleAuthToken,
-  fetchGoogleUserProfile,
-} from "../lib/google-auth-utils.js";
-
-let googleAuthToken = null;
 
 // Load token from chrome.storage on startup
 getGoogleAuthToken().then((token) => {
@@ -174,8 +174,6 @@ const authStatus = document.getElementById("authStatus");
 if (authStatus && authStatus.parentNode) {
   authStatus.parentNode.insertBefore(userProfileDiv, authStatus.nextSibling);
 }
-
-// ...existing code...
 
 async function updateAuthUI() {
   const anchorIsGoogle = anchorType && anchorType.value === "google";

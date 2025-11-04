@@ -1,42 +1,15 @@
 // popup.js - Handles popup UI logic for Lockb0x Protocol Codex Forge
-import { summarizeText } from "../lib/ai.js";
-import { readFile, extractPageContent } from "../lib/file-utils.js";
-import {
-  setStatusMessage,
-  toggleButtonVisibility,
-  showJsonResult,
-  showCertificateSummary,
-  showAISummary,
-  updateStepper
-} from "./popup-ui.js";
 
-import {
-  getGoogleAuthToken,
-  setGoogleAuthToken,
-  removeGoogleAuthToken,
-  fetchGoogleUserProfile,
-} from "../lib/google-auth-utils.js";
-
-const fileInput = document.getElementById("fileInput");
-const extractPageBtn = document.getElementById("extractPageBtn");
-const anchorType = document.getElementById("anchorType");
-const googleSignInBtn = document.getElementById("googleSignInBtn");
-const generateBtn = document.getElementById("generateBtn");
-const entryForm = document.getElementById("entryForm");
-const jsonResult = document.getElementById("jsonResult");
-const aiSummary = document.getElementById("aiSummary");
-const downloadBtn = document.getElementById("downloadBtn");
-const copyBtn = document.getElementById("copyBtn");
-const statusDiv = document.getElementById("status");
-
-let googleAuthToken = null;
-let googleLogOutBtn = document.getElementById("googleLogOutBtn");
-
-let extractedData = "";
-let extractedBytes = null;
+// Store zip blob globally for download
+let currentZipBlob = null;
 
 // Handles Codex entry generation responses for both small and large files
 function handleCodexResponse(response) {
+  // Store zip blob if present
+  if (response && response.zipBlob) {
+    currentZipBlob = response.zipBlob;
+  }
+  
   // Stepper updates for small file workflow
   if (response && response.ok && response.entry) {
     updateStepper("step-upload", "done");
@@ -52,48 +25,48 @@ function handleCodexResponse(response) {
   }
   console.log("[popup] Codex entry response:", response);
   if (response && response.ok && response.entry) {
-    // If Google Drive payload, validate existence before export
-    let payloadExists = true;
-    let payloadValidationMsg = "";
+    // If Google Drive zip archive, validate existence before export
+    let zipExists = true;
+    let zipValidationMsg = "";
     if (
       response.entry.storage &&
       response.entry.storage.protocol === "gdrive" &&
-      response.payloadDriveInfo &&
-      response.payloadDriveInfo.id &&
+      response.zipDriveInfo &&
+      response.zipDriveInfo.id &&
       googleAuthToken
     ) {
       (async () => {
         try {
-          const validatePayload = await new Promise((resolve) => {
+          const validateZip = await new Promise((resolve) => {
             chrome.runtime.sendMessage(
               {
                 type: "VALIDATE_PAYLOAD_EXISTENCE",
                 payload: {
-                  fileId: response.payloadDriveInfo.id
+                  fileId: response.zipDriveInfo.id
                 },
               },
               resolve,
             );
           });
-          if (validatePayload && validatePayload.ok && validatePayload.exists) {
-            payloadExists = true;
-            payloadValidationMsg = "Payload exists on Google Drive.";
-          } else if (validatePayload && validatePayload.error && validatePayload.error.includes('token expired')) {
-            payloadExists = false;
-            payloadValidationMsg = "Google token expired. Please sign in again.";
+          if (validateZip && validateZip.ok && validateZip.exists) {
+            zipExists = true;
+            zipValidationMsg = "Zip archive exists on Google Drive.";
+          } else if (validateZip && validateZip.error && validateZip.error.includes('token expired')) {
+            zipExists = false;
+            zipValidationMsg = "Google token expired. Please sign in again.";
             await updateAuthUI();
           } else {
-            payloadExists = false;
-            payloadValidationMsg = "Payload NOT found on Google Drive.";
+            zipExists = false;
+            zipValidationMsg = "Zip archive NOT found on Google Drive.";
           }
         } catch (_err) {
-          payloadExists = false;
-          payloadValidationMsg = "Error validating payload existence.";
+          zipExists = false;
+          zipValidationMsg = "Error validating zip archive existence.";
         }
-        updateCodexUI(response, payloadExists, payloadValidationMsg);
+        updateCodexUI(response, zipExists, zipValidationMsg);
       })();
     } else {
-      updateCodexUI(response, payloadExists, payloadValidationMsg);
+      updateCodexUI(response, zipExists, zipValidationMsg);
     }
   } else if (response && typeof response.ok !== "undefined") {
     let errorMsg = "Failed to generate entry.\n";
@@ -128,23 +101,55 @@ function showError(message, recovery) {
 
 // Update Codex UI with entry and payload status
 function updateCodexUI(response, payloadExists, payloadValidationMsg) {
-  showJsonResult(response && response.entry ? response.entry : null);
-  showCertificateSummary(response && response.entry && response.entry.certificate ? response.entry.certificate : null);
-  showAISummary(response && response.entry && response.entry.ai ? response.entry.ai : null);
-  if (payloadValidationMsg) {
-    setStatusMessage(payloadValidationMsg, payloadExists ? "success" : "error");
+  // Show Codex entry JSON
+  if (jsonResult) {
+    jsonResult.textContent =
+      response && response.entry ? JSON.stringify(response.entry, null, 2) : "";
+    jsonResult.style.display = response && response.entry ? "block" : "none";
   }
-  if (response && response.ok && response.entry) {
-    setStatusMessage(
-      "Codex entry generated successfully." + (payloadValidationMsg ? "\n" + payloadValidationMsg : ""),
-      "success"
-    );
-    toggleButtonVisibility("generateBtn", false);
-    toggleButtonVisibility("downloadBtn", true);
-    toggleButtonVisibility("copyBtn", true);
+  // Show certificate summary if present
+  if (certificateSummary) {
+    certificateSummary.textContent =
+      response && response.entry && response.entry.certificate
+        ? "Certificate: " + JSON.stringify(response.entry.certificate, null, 2)
+        : "";
+    certificateSummary.style.display =
+      response && response.entry && response.entry.certificate
+        ? "block"
+        : "none";
+  }
+  // Show AI summary if present
+  if (aiSummary) {
+    aiSummary.textContent =
+      response && response.entry && response.entry.ai
+        ? "AI Summary: " + JSON.stringify(response.entry.ai, null, 2)
+        : "";
+    aiSummary.style.display =
+      response && response.entry && response.entry.ai ? "block" : "none";
+  }
+  // Show payload validation message if provided
+  if (payloadValidationMsg && statusDiv) {
+    statusDiv.textContent = payloadValidationMsg;
+    statusDiv.style.color = payloadExists ? "#00796b" : "#c62828";
+  }
+  // Show success message and update button visibility
+  if (response && response.ok && response.entry && statusDiv) {
+    statusDiv.textContent =
+      "Codex entry generated successfully." +
+      (payloadValidationMsg ? "\n" + payloadValidationMsg : "");
+    statusDiv.style.color = "#00796b";
+    // Hide generate button, show download/copy buttons
+    if (generateBtn) generateBtn.style.display = "none";
+    if (downloadBtn) downloadBtn.style.display = "inline-block";
+    if (copyBtn) copyBtn.style.display = "inline-block";
   }
 }
 
+const fileInput = document.getElementById("fileInput");
+const extractPageBtn = document.getElementById("extractPageBtn");
+const anchorType = document.getElementById("anchorType");
+const googleSignInBtn = document.getElementById("googleSignInBtn");
+let googleLogOutBtn = document.getElementById("googleLogOutBtn");
 if (!googleLogOutBtn) {
   googleLogOutBtn = document.createElement("button");
   googleLogOutBtn.id = "googleLogOutBtn";
@@ -155,8 +160,26 @@ if (!googleLogOutBtn) {
     googleSignInBtn.nextSibling,
   );
 }
+const generateBtn = document.getElementById("generateBtn");
+const entryForm = document.getElementById("entryForm");
+const jsonResult = document.getElementById("jsonResult");
+const certificateSummary = document.getElementById("certificateSummary");
+const aiSummary = document.getElementById("aiSummary");
+const downloadBtn = document.getElementById("downloadBtn");
+const copyBtn = document.getElementById("copyBtn");
+const statusDiv = document.getElementById("status");
 
+let extractedData = "";
+let extractedBytes = null;
+let metadata = {};
 
+import {
+  getGoogleAuthToken,
+  setGoogleAuthToken,
+  removeGoogleAuthToken,
+} from "../lib/google-auth-utils.js";
+
+let googleAuthToken = null;
 
 // Load token from chrome.storage on startup
 getGoogleAuthToken().then((token) => {
@@ -485,6 +508,20 @@ entryForm.addEventListener("submit", async (e) => {
   }
 });
 
+// Helper function to extract codex ID from entry
+function getCodexIdFromEntry() {
+  let codexId = "codex";
+  try {
+    const entry = JSON.parse(jsonResult.textContent);
+    if (entry && entry.id) {
+      codexId = entry.id;
+    }
+  } catch (err) {
+    console.warn("[popup] Could not parse codex entry for ID:", err);
+  }
+  return codexId;
+}
+
 downloadBtn.addEventListener("click", () => {
   const blob = new Blob([jsonResult.textContent], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -493,6 +530,24 @@ downloadBtn.addEventListener("click", () => {
   a.download = "codex-entry.json";
   a.click();
   URL.revokeObjectURL(url);
+});
+
+downloadZipBtn.addEventListener("click", () => {
+  if (!currentZipBlob) {
+    statusDiv.textContent = "No zip archive available for download.";
+    statusDiv.style.color = "#c62828";
+    return;
+  }
+  
+  const codexId = getCodexIdFromEntry();
+  const url = URL.createObjectURL(currentZipBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${codexId}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+  statusDiv.textContent = "Zip archive downloaded.";
+  statusDiv.style.color = "#00796b";
 });
 
 copyBtn.addEventListener("click", () => {

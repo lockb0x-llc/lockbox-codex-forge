@@ -683,6 +683,8 @@ verifyBtn.addEventListener("click", async () => {
     const arrayBuffer = await file.arrayBuffer();
 
     // Send to background script for verification
+    // Note: Converting to Array for Chrome message passing.
+    // For very large files (>100MB), consider using chrome.runtime.connect() with streaming
     const response = await new Promise((resolve) => {
       chrome.runtime.sendMessage(
         {

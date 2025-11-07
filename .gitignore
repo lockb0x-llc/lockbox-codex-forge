@@ -38,3 +38,6 @@ manifest.json
 npm-debug.log
 /dist
 /.vscode
+
+# Test files
+test-verification.zip

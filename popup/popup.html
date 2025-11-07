@@ -97,6 +97,34 @@
       <div id="certificateSummary"></div>
     </div>
 
+    <!-- Validator Section -->
+    <div id="validatorSection" class="validator-section">
+      <h2>Verify Codex Entry</h2>
+      <fieldset class="step-fieldset">
+        <legend>Upload Zip Archive to Verify</legend>
+        <label for="zipInput">Select Zip Archive:</label>
+        <input
+          type="file"
+          id="zipInput"
+          accept=".zip"
+        />
+        <button type="button" id="verifyBtn" class="action-btn">
+          Verify Archive
+        </button>
+        
+        <div id="verifyLoading" class="loading-message" style="display: none;">
+          Verifying archive…
+        </div>
+        
+        <div id="verifyStatus" class="status-message"></div>
+        
+        <div id="verifyResult">
+          <h3>Verification Result</h3>
+          <pre id="verifyDetails"></pre>
+        </div>
+      </fieldset>
+    </div>
+
 
     <script type="module" src="popup.js"></script>
   </body>

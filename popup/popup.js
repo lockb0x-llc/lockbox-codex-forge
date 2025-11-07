@@ -653,3 +653,83 @@ function initializeAuthUI() {
 
 // Remove automatic token request on load
 initializeAuthUI();
+
+// ======================================
+// Validator Logic
+// ======================================
+
+const zipInput = document.getElementById("zipInput");
+const verifyBtn = document.getElementById("verifyBtn");
+const verifyLoading = document.getElementById("verifyLoading");
+const verifyStatus = document.getElementById("verifyStatus");
+const verifyDetails = document.getElementById("verifyDetails");
+
+verifyBtn.addEventListener("click", async () => {
+  const file = zipInput.files[0];
+  if (!file) {
+    verifyStatus.textContent = "Please select a zip archive to verify.";
+    verifyStatus.style.color = "red";
+    return;
+  }
+
+  // Show loading
+  verifyLoading.style.display = "block";
+  verifyStatus.textContent = "";
+  verifyDetails.textContent = "";
+  verifyBtn.disabled = true;
+
+  try {
+    // Read the zip file as ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Send to background script for verification
+    // Note: Converting to Array for Chrome message passing.
+    // For very large files (>100MB), consider using chrome.runtime.connect() with streaming
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          type: "VERIFY_ZIP_ARCHIVE",
+          payload: {
+            zipData: Array.from(new Uint8Array(arrayBuffer)),
+          },
+        },
+        resolve
+      );
+    });
+
+    // Hide loading
+    verifyLoading.style.display = "none";
+    verifyBtn.disabled = false;
+
+    if (response && response.valid) {
+      verifyStatus.textContent = "✓ Verification successful!";
+      verifyStatus.style.color = "green";
+      
+      const details = {
+        valid: true,
+        payloadFilename: response.payloadFilename,
+        integrity: response.details.integrity,
+        signatures: response.details.signatures,
+      };
+      
+      verifyDetails.textContent = JSON.stringify(details, null, 2);
+    } else {
+      verifyStatus.textContent = "✗ Verification failed";
+      verifyStatus.style.color = "red";
+      
+      const details = {
+        valid: false,
+        errors: response.errors || ["Unknown error"],
+        details: response.details || {},
+      };
+      
+      verifyDetails.textContent = JSON.stringify(details, null, 2);
+    }
+  } catch (err) {
+    verifyLoading.style.display = "none";
+    verifyBtn.disabled = false;
+    verifyStatus.textContent = `Error: ${err.message}`;
+    verifyStatus.style.color = "red";
+    console.error("[popup] Verification error:", err);
+  }
+});

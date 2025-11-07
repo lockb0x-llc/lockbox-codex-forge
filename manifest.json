@@ -17,28 +17,26 @@
     "128": "icons/icon128.png"
   },
   "permissions": [
-   "storage",
-   "activeTab",
-   "scripting",
-   "contextMenus",
-   "identity",
-   "downloads"
+    "storage",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "identity",
+    "downloads"
   ],
-  "host_permissions": [
-      "<all_urls>"
-  ],
+  "host_permissions": ["<all_urls>"],
   "web_accessible_resources": [
     {
-      "resources": [ "lib/vendor/ajv.min.js" ],
-      "matches": [ "<all_urls>" ]
+      "resources": ["lib/vendor/ajv.min.js"],
+      "matches": ["<all_urls>"]
     }
   ],
   "oauth2": {
-    "client_id": "873765379611-dit7f0lj8ej3o10jkegmvk6ifj7826op.apps.googleusercontent.com",
+    "client_id": "test-client-id",
     "scopes": [
-        "https://www.googleapis.com/auth/drive.file",
-        "https://www.googleapis.com/auth/userinfo.email",
-        "https://www.googleapis.com/auth/userinfo.profile"
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
     ]
   }
 }

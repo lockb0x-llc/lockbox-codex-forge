@@ -87,3 +87,41 @@ h1 {
   display: none;
   margin-right: 8px;
 }
+
+/* Validator Section Styles */
+.validator-section {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 2px solid #ccc;
+}
+
+.validator-section h2 {
+  font-size: 1.1em;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+#verifyResult {
+  margin-top: 16px;
+}
+
+#verifyResult h3 {
+  font-size: 1em;
+  margin-bottom: 8px;
+}
+
+#verifyDetails {
+  background-color: #f5f5f5;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
+#verifyBtn {
+  display: inline-block;
+  margin-left: 8px;
+}

@@ -8,6 +8,7 @@ import {
 import { summarizeContent, generateProcessTag } from "./lib/ai.js";
 import { validateCodexEntry } from "./lib/validate.js";
 import { signCodexEntry, buildUnsignedCodexEntry } from "./lib/codex-utils.js";
+import { verifyZipArchive } from "./lib/verify-codex.js";
 
 import {
   uploadFileToGoogleDrive,
@@ -59,12 +60,36 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
+  
+  // Verify zip archive
+  if (msg.type === "VERIFY_ZIP_ARCHIVE") {
+    (async function () {
+      try {
+        const { zipData } = msg.payload;
+        const zipBytes = new Uint8Array(zipData);
+        
+        // Verify the zip archive
+        const result = await verifyZipArchive(zipBytes);
+        
+        sendResponse(result);
+      } catch (err) {
+        sendResponse({
+          valid: false,
+          errors: [err.message],
+          details: {},
+        });
+      }
+    })();
+    return true;
+  }
+  
   if (msg.type === "CREATE_CODEX_FROM_FILE") {
     // Always send a response for unhandled message types
     if (
       ![
         "GOOGLE_AUTH_REQUEST",
         "VALIDATE_PAYLOAD_EXISTENCE",
+        "VERIFY_ZIP_ARCHIVE",
         "CREATE_CODEX_FROM_FILE",
       ].includes(msg.type)
     ) {
